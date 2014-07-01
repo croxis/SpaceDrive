@@ -1,6 +1,3 @@
-#from direct.directnotify.DirectNotify import DirectNotify
-#log = DirectNotify().newCategory("SpaceDrive")
-
 from panda3d.core import LPoint3d, NodePath
 
 # Physics constants
@@ -9,7 +6,6 @@ G = 6.67e-11
 run_client = False
 run_server = False
 
-defaultSOIid = None #client
 shipid = None #client
 
 spawn = LPoint3d(0, 0, 0)

@@ -93,27 +93,30 @@ def init_system(system, component=None):
 
 
 def init_graphics():
-    '''Sets up multipass rendering. Rendering is done in this order:
-    Skybox, Suns, Atmospheres, Celestial bodies, ships'''
+    """Sets up multipass rendering. Rendering is done in this order:
+    Skybox, Suns, Atmospheres, Celestial bodies, ships"""
 
 
-def init_client_net(system, component=None, address='127.0.0.1', port='1999'):
+def init_client_net(system, component=None, address='127.0.0.1', port=1999):
     """Sets up and registers client network system."""
-
-
-def init_server_net(system, component=None, address='127.0.0.1', port='1999'):
     system = system(component)
     system.init(address, port)
     sandbox.add_system(system)
 
 
-def init_physics(system=physics_system.PhysicsSystem,
-                 component=physics_components.BulletPhysicsComponent):
-    init_system(system, component)
+def init_server_net(system, component=None, address='127.0.0.1', port=1999):
+    system = system(component)
+    system.init(address, port)
+    sandbox.add_system(system)
 
 
 def init_orbits(system=orbit_system.OrbitSystem,
                 component=celestial_components.CelestialComponent):
+    init_system(system, component)
+
+
+def init_physics(system=physics_system.PhysicsSystem,
+                 component=physics_components.BulletPhysicsComponent):
     init_system(system, component)
 
 

@@ -18,7 +18,7 @@ class ClientNetworkSystem(sandbox.UDPNetworkSystem):
         self.accept('requestCreateShip', self.requestCreateShip)
         self.accept('requestTarget', self.requestTarget)
 
-    def processPacket(self, msgID, remotePacketCount, ack, acks, hashID, serialized, address):
+    def process_packet(self, msgID, remotePacketCount, ack, acks, hashID, serialized, address):
         #If not in our protocol range then we just reject
         if msgID < 0 or msgID > 200:
             return
@@ -58,7 +58,7 @@ class ClientNetworkSystem(sandbox.UDPNetworkSystem):
         self.send(datagram)
 
     def send(self, datagram):
-        self.sendData(datagram, self.serverAddress)
+        self.send_data(datagram, self.serverAddress)
 
 
 class ServerComponent:

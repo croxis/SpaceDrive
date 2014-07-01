@@ -1,5 +1,12 @@
 from panda3d.core import LPoint3d, NodePath
 
+
+class SolarSystemComponent:
+    def __init__(self, name='Solar System', root_node=NodePath()):
+        self.name = name
+        self.root_node = root_node
+
+
 '''Types of bodies:
     solid: Planet, asteroid
     star: Star
@@ -8,29 +15,22 @@ from panda3d.core import LPoint3d, NodePath
 TYPES = {'moon': 0, 'solid': 1, 'star': 2, 'barycenter': 3}
 
 
-class BaryCenter(NodePath):
-    '''This class is used to simulate the center of a multibody system.
-    Mass is the sum of masses of the multibody system
-    SOI is the sphere of influence of a body for patched conics
-    In this case soi is the "virtual" sphere for the entire system'''
-
-
-class Body(BaryCenter):
-    period = 0
-    radius = 1
-    kind = "solid"
-
-
-class Star(Body):
-    kind = "star"
-    absoluteM = 1
-    spectralType = ""
-
-
 class CelestialComponent(object):
-    nodePath = None
-    truePos = LPoint3d(0, 0, 0)
-    mass = 0
-    soi = 0
-    kind = None
-    orbit = {}
+    def __init__(self, node_path=NodePath(), true_pos=LPoint3d(0, 0, 0),
+                 mass=0, soi=0, kind='', orbit=None):
+        if not orbit:
+            orbit = {}
+        self.node_path = node_path
+        self.true_pos = true_pos
+        self.mass = mass
+        self.soi = soi
+        self.kind = kind
+        self.orbit = orbit
+        self.radius = 1
+        self.rotation = 0
+
+
+class StarComponent(object):
+    def __init__(self, absolute_magnitude=1, spectral_type=''):
+        self.absolute_magnitude = absolute_magnitude
+        self.spectral_type = spectral_type
