@@ -1,9 +1,9 @@
 class BulletPhysicsComponent(object):
-    '''Contains reference to bullet shape and node as well as SOI for
+    """Contains reference to bullet shape and node as well as SOI for
     planetary gravitational influence.
 
     zonex and zoney is the id of the bullet world. The true
-    position is is worldx + nodePath.getX()'''
+    position is is worldx + nodePath.getX()"""
     bulletShape = None
     node = None
     nodePath = None
@@ -15,7 +15,7 @@ class BulletPhysicsComponent(object):
     zonex = 0
     zoney = 0
 
-    def getTruePos(self, debug=False):
+    def get_true_pos(self, debug=False):
         '''Returns the "true" position of this object'''
         if debug:
             print self.nodePath.getName(), self.zoney * physics.ZONESIZE, self.nodePath.getY(), self.zoney * physics.ZONESIZE + self.nodePath.getY()

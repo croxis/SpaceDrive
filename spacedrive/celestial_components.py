@@ -16,11 +16,12 @@ TYPES = {'moon': 0, 'solid': 1, 'star': 2, 'barycenter': 3}
 
 
 class CelestialComponent(object):
-    def __init__(self, node_path=NodePath(), true_pos=LPoint3d(0, 0, 0),
+    def __init__(self, parent_entity, node_path=NodePath(), true_pos=LPoint3d(0, 0, 0),
                  mass=0, soi=0, kind='', orbit=None):
         if not orbit:
             orbit = {}
         self.node_path = node_path
+        self.parent_entity = parent_entity
         self.true_pos = true_pos
         self.mass = mass
         self.soi = soi

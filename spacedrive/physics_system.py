@@ -7,20 +7,35 @@ import physics_components as phys_comps
 import universals
 
 from direct.directnotify.DirectNotify import DirectNotify
-log = DirectNotify().newCategory("SpaceDrive Physics")
+log = DirectNotify().newCategory("SpaceDrive-Physics")
 
-def getPhysics():
+
+def get_physics():
     return sandbox.getSystem(PhysicsSystem)
+'''notes:
+76543.21 for a float cm precision
+100,000 positive, and negative, so world size is 200,000 meters, or 200km'''
+
+
+class FloatingPhysicsSystem(sandbox.EntitySystem):
+    """Floating bullet worlds. Inspired by KSP and CCP physics system.
+
+    Each ship is centered in a 100kmx100kmx100km bullet world.
+    Bullet world origin has a soi relative pos. Ship true pos calculated from
+    world origin true + relative position in world + soi position.
+
+    If the ship enters a distance threshold in bullet world (say 25km) the
+    heliocentric physics data is stored, old bullet world destroyed, new one
+    created that matches current physics. Bullet worlds do not hpr, only pos.
+
+    If the grid touches a ship in another grid, destroy and make a
+    200x200x200km grid to hold all ships on grid. Grid position and velocity is
+    average of all ships on new grid."""
 
 
 class PhysicsSystem(sandbox.EntitySystem):
     """System that interacts with the Bullet physics world.
-    Meshes are made in standard SI (meters, newtons).
-    Internally we autoscale down to km. A factor of 1000.
-    IE 1 blender unit = 1 m. 1 panda unit = 1 km.
-    Configuration files units are km, metric ton, kilonewtons"""
-    #TODO: Scale config to standard SI and programmaticly adjust to
-    # km metric ton and kilonewtons
+    Meshes are made in standard SI (meters, newtons, kg)."""
     def init(self):
         #self.accept("addSpaceship", self.addSpaceship)
         self.accept('setThrottle', self.setThrottle)
@@ -29,21 +44,18 @@ class PhysicsSystem(sandbox.EntitySystem):
     def begin(self):
         """Nab a copy of the solar system coordinates. No because of threading"""
 
-
     def process(self, entity):
         physcomp = entity.getComponent(phys_comps.BulletPhysicsComponent)
         if not physcomp.node.is_active():
             physcomp.node.setActive(True)
         celestial_bodies = sandbox.getEntitiesByComponentType(cel_comps.CelestialComponent)
         # Probably very expensive. Will need optimization later
-        # We assume a single star solar system. Will need to update the
-        # sol system structure for multiple star solar systems
         soi = False
         previousR = 0
         for body in celestial_bodies:
             body_component = body.getComponent(cel_comps.CelestialComponent)
-            distance = (body_component.truePos
-                - physcomp.getTruePos()).length()
+            distance = (body_component.true_pos
+                - physcomp.get_true_pos()).length()
             if distance < body_component.soi:
                 if not soi:
                     previousR = distance
@@ -57,7 +69,7 @@ class PhysicsSystem(sandbox.EntitySystem):
 
         celestial_component = sandbox.entities[physcomp.currentSOI].getComponent(
             cel_comps.CelestialComponent)
-        vector = celestial_component.truePos - physcomp.getTruePos()
+        vector = celestial_component.truePos - physcomp.get_true_pos()
         distance = vector.length() * 1000
         gravityForce = Vec3(0, 0, 0)
         if distance:

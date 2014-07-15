@@ -16,13 +16,14 @@ from direct.directnotify.DirectNotify import DirectNotify
 from panda3d.core import loadPrcFileData
 from panda3d.core import VirtualFileSystem
 
-from . import celestial_components
-from . import physics_components
+from .import celestial_components
+from .import physics_components
 
-from . import orbit_system
-from . import physics_system
+from .import gui_system
+from .import orbit_system
+from .import physics_system
 
-from . import universals
+from .import universals
 log = DirectNotify().newCategory("SpaceDrive")
 
 vfs = VirtualFileSystem.getGlobalPtr()
@@ -75,6 +76,7 @@ def init(
         loadPrcFileData('', 'task-timer-verbose 1')
         loadPrcFileData('', 'pstats-tasks 1')
         loadPrcFileData('', 'want-pstats 1')
+        loadPrcFileData("", "textures-power-2 none")
     log.info("Loading Sandbox")
     sandbox.init(log_level=log_level)
     sandbox.base.setSleep(0.001)
@@ -87,6 +89,7 @@ def init_system(system, component=None):
     :param system:
     :param component:
     """
+    log.debug("Setting up system: " + str(system))
     system = system(component)
     system.init()
     sandbox.add_system(system)
@@ -95,6 +98,7 @@ def init_system(system, component=None):
 def init_graphics():
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
+    log.warning("TODO: Implement")
 
 
 def init_client_net(system, component=None, address='127.0.0.1', port=1999):
@@ -108,6 +112,14 @@ def init_server_net(system, component=None, address='127.0.0.1', port=1999):
     system = system(component)
     system.init(address, port)
     sandbox.add_system(system)
+
+
+def init_gui():
+    init_system()
+
+
+def init_solar_system():
+    pass
 
 
 def init_orbits(system=orbit_system.OrbitSystem,
