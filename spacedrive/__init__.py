@@ -80,7 +80,7 @@ def init(
     log.info("Loading Sandbox")
     sandbox.init(log_level=log_level)
     sandbox.base.setSleep(0.001)
-    sandbox.base.disableMouse()
+    #sandbox.base.disableMouse()
 
 
 def init_system(system, component=None):
@@ -91,7 +91,6 @@ def init_system(system, component=None):
     """
     log.debug("Setting up system: " + str(system))
     system = system(component)
-    system.init()
     sandbox.add_system(system)
 
 
@@ -115,7 +114,7 @@ def init_server_net(system, component=None, address='127.0.0.1', port=1999):
 
 
 def init_gui():
-    init_system()
+    init_system(gui_system.GUISystem)
 
 
 def init_solar_system():

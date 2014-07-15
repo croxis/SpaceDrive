@@ -11,7 +11,7 @@ log = DirectNotify().newCategory("SpaceDrive-Physics")
 
 
 def get_physics():
-    return sandbox.getSystem(PhysicsSystem)
+    return sandbox.get_system(PhysicsSystem)
 '''notes:
 76543.21 for a float cm precision
 100,000 positive, and negative, so world size is 200,000 meters, or 200km'''
