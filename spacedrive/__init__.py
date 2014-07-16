@@ -135,6 +135,10 @@ def run():
     sandbox.run()
 
 
+def send(message, params=[]):
+    sandbox.send(message, params)
+
+
 if __name__ == '__main__':
     init(run_server=True, run_client=True, log_level='debug')
     print("Testing systems")
