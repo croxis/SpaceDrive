@@ -1,0 +1,120 @@
+#version 440
+
+#extension GL_ARB_shader_image_load_store : enable
+
+// TODO: Make some benchmarks to see wheter unrolling
+// is faster or slower ..
+#pragma optionNV (unroll all)
+
+#include "Includes/Configuration.include"
+#include "Includes/Light.include"
+#include "Includes/Material.include"
+#include "Includes/ShadowSource.include"
+#include "Includes/ColorCorrection.include"
+#include "Includes/DSSDO.include"
+
+uniform sampler2D data0;
+uniform sampler2D data1;
+uniform sampler2D data2;
+
+// uniform sampler2D lightsPerTile;
+layout (r32i) readonly uniform iimage2D lightsPerTile;
+layout (rgba16f) uniform image2D destination;
+
+
+uniform Light lights[MAX_VISIBLE_LIGHTS]; 
+uniform ShadowSource shadowSources[SHADOW_MAX_TOTAL_MAPS]; 
+in vec2 texcoord;
+
+uniform int temporalProjXOffs;
+
+
+
+
+// Has to be after the uniforms
+#include "Includes/Lighting.include"
+
+void main() {
+
+
+    // Compute texcoords
+    ivec2 screenSize = textureSize(data0, 0);
+    ivec2 screenCoord = ivec2(texcoord * vec2(screenSize.x + 1 , screenSize.y)); 
+
+    // screenCoord.x += (screenCoord.x + screenCoord.y) %2 ;
+    screenCoord.x += (screenCoord.x + screenCoord.y) % 2 == temporalProjXOffs ? -1 : 0;
+
+    ivec2 precomputeSize = imageSize(lightsPerTile) / ivec2(8);
+    ivec2 precomputeCoord = ivec2(texcoord * precomputeSize) * ivec2(8);
+
+    // Extract material data
+    vec4 target0data = texelFetch(data0, screenCoord, 0);
+    vec4 target1data = texelFetch(data1, screenCoord, 0);
+    vec4 target2data = texelFetch(data2, screenCoord, 0);
+
+    Material material = unpackMaterial(target0data, target1data, target2data);
+
+    int countPointLight = imageLoad(lightsPerTile, precomputeCoord + ivec2(0,0)).r;
+    int countPointLightShadow = imageLoad(lightsPerTile, precomputeCoord + ivec2(1,0)).r;
+
+    vec3 result = vec3(0);
+
+    // Compute point lights
+    ivec2 baseOffset = precomputeCoord + ivec2(0,1);
+    ivec2 currentOffset = ivec2(0);
+    int currentLightId = 0;
+    Light currentLight;
+
+    for (int i = 0; i < countPointLight; i++) {
+        currentOffset = ivec2(i%8, i/8);
+        currentLightId = imageLoad(lightsPerTile, baseOffset + currentOffset).r;
+        currentLight = lights[currentLightId];
+
+        result += applyPointLight(currentLight, material);
+    }
+
+    // Compute shadow point lights
+    baseOffset = precomputeCoord + ivec2(0,3);
+    for (int i = 0; i < countPointLightShadow; i++) {
+        currentOffset = ivec2(i%8, i/8);
+        currentLightId = imageLoad(lightsPerTile, baseOffset + currentOffset).r;
+        currentLight = lights[currentLightId];
+
+        #if USE_SHADOWS
+            result += applyPointLightWithShadow(currentLight, material);
+        #else:
+            result += applyPointLight(currentLight, material);
+        #endif
+    }
+
+    // result += 0.1 * material.normal;
+
+
+    // Occlusion
+    float distanceToCamera = distance(cameraPosition, material.position);
+    float occlusionFactor = computeDSSDO(texcoord,screenCoord, material, distanceToCamera, data1, data0);
+
+    // Metallic materials don't have much occlusion
+    // occlusionFactor = mix(occlusionFactor, 1.0, saturate(material.metallic-1.0) );
+
+    // occlusionFactor = 1.0;
+    // result.xyz = vec3(material.baseColor)+  0.1;
+
+    #ifdef DSSDO_ONLY
+        result.xyz = vec3(1);
+    #endif
+
+    // TODO: Move this to other passes??
+    // HDR Mapping
+    result.xyz = 1.0f - exp(-1.0 * result.xyz);
+
+
+    // SRGB
+    result.xyz = sqrt(result.xyz);
+
+    // result.xyz = saturate(result);
+    gl_FragColor = vec4(result, occlusionFactor);
+
+    // gl_FragColor = vec4(((screenCoord.x+screenCoord.y)%2));
+
+}

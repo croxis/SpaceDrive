@@ -1,0 +1,31 @@
+
+#include "Includes/Configuration.include"
+#include "Includes/Packing.include"
+
+
+struct Material {
+    vec3 baseColor;
+    float roughness;
+    float metallic;
+    float specular;
+    float transluency;
+    vec3 position;
+    vec3 normal;
+};
+
+
+Material unpackMaterial(vec4 data0, vec4 data1, vec4 data2) {
+    Material m;
+
+    m.position = data0.xyz;
+    m.roughness = data0.w;
+    m.normal = decodeNormal(data1.xy);
+    m.baseColor = unpackColor(data1.zw);
+    m.metallic = data2.w;
+    m.specular = data2.z;
+    // m.transluency = data2.z;
+
+    m.transluency = 0.0;
+
+    return m;
+}

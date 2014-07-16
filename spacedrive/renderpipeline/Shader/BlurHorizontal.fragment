@@ -1,0 +1,19 @@
+#version 130
+
+#pragma optionNV (unroll all)
+
+#include "Includes/Configuration.include"
+#include "Includes/BokehDOF2.include"
+
+
+
+uniform sampler2D colorTex;
+uniform sampler2D depthTex;
+uniform sampler2D dofStorage;
+in vec2 texcoord;
+
+
+void main() {
+    // gl_FragColor = mipmapBasedBlur(texcoord, vec2(1,0), colorTex, dofStorage);
+    gl_FragColor = bokehDOF2(texcoord, colorTex);
+}

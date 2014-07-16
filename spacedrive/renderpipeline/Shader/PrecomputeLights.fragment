@@ -1,0 +1,171 @@
+#version 430
+
+#extension GL_ARB_shader_image_load_store : enable
+
+// TODO: Make some benchmarks to see wheter unrolling
+// is faster or slower ..
+
+#pragma optionNV (unroll all)
+
+
+// Includes
+#include "Includes/Configuration.include"
+#include "Includes/Light.include"
+#include "Includes/Packing.include"
+#include "Includes/PositionReconstruction.include"
+#include "Includes/Frustum.include"
+#include "Includes/LightCulling.include"
+
+in vec2 texcoord;
+uniform sampler2D depth;
+
+layout (r32i) uniform iimage2D destination;
+
+// Per-Light data and count
+uniform Light lights[MAX_VISIBLE_LIGHTS];
+
+uniform int countPointLight;
+uniform int arrayPointLight[MAX_POINT_LIGHTS];
+
+uniform int arrayPointLightShadow[MAX_POINT_LIGHTS];
+uniform int countPointLightShadow;
+
+
+// Matrices used for the culling
+// I defined constants because the names are quite long ..
+// But I think that will be fixed by rdb's new input system soon 
+#define PROJ_MAT trans_apiview_of_mainCam_to_apiclip_of_mainCam
+#define VIEW_MAT trans_mainRender_to_apiview_of_mainCam
+#define MODEL_VIEW_PROJ_MAT trans_mainRender_to_apiclip_of_mainCam
+uniform mat4 PROJ_MAT;
+uniform mat4 VIEW_MAT;
+uniform mat4 MODEL_VIEW_PROJ_MAT;
+
+void main() {
+
+    // Common variables
+    ivec2 patchSize = ivec2(LIGHTING_COMPUTE_PATCH_SIZE_X, LIGHTING_COMPUTE_PATCH_SIZE_Y); 
+    ivec2 screenSize = textureSize(depth, 0);
+    ivec2 computeSize = screenSize;
+
+    ivec2 precomputeSize = computeSize / patchSize;
+    ivec2 precomputeCoord = ivec2( texcoord * precomputeSize );
+    ivec2 storageSize = imageSize(destination);
+    ivec2 storageCoord = ivec2(8) * precomputeCoord;
+
+    vec2 onScreenTexc = vec2(storageCoord) / vec2(storageSize);
+    ivec2 screenPos = ivec2(onScreenTexc * screenSize);
+
+    // Compute Min and Max depth
+    float minDepth = 10.0;
+    float maxDepth = -10.0;
+
+    // Compute min / max depth per tile
+    for (int x = 0; x < LIGHTING_COMPUTE_PATCH_SIZE_X; x+=LIGHTING_MIN_MAX_DEPTH_ACCURACY) {
+        for (int y = 0; y < LIGHTING_COMPUTE_PATCH_SIZE_X; y+=LIGHTING_MIN_MAX_DEPTH_ACCURACY) {
+            ivec2 newCoord = screenPos + ivec2(x,y);
+
+            // Check if out of screen bounds
+            // NOTE: This -should- not be necessary, otherwise
+            // something else is wrong
+            if (newCoord.x < screenSize.x && newCoord.y < screenSize.y) {
+                float storedDepth = texelFetch(depth, newCoord, 0).r;
+                // float storedDepth = imageLoad(depth, newCoord).r;
+                minDepth = min(minDepth, storedDepth);
+                maxDepth = max(maxDepth, storedDepth);
+            } 
+        }
+    }
+
+
+    // Also store linear depth to be able to compare
+    // light depth and min/max depth easily
+    float minDepthLinear = getLinearZFromZ(minDepth);
+    float maxDepthLinear = getLinearZFromZ(maxDepth);
+
+    // Compute tile bounds, needed for frustum
+    vec2 tileScale = vec2(computeSize) * 0.5f / vec2(patchSize);
+    vec2 tileBias = tileScale - vec2(precomputeCoord);
+
+    // Store matrices in local variables as their name
+    // can get very long
+    mat4 projMat = PROJ_MAT;
+    mat4 viewMat = VIEW_MAT;
+    mat4 mvpMat = MODEL_VIEW_PROJ_MAT;
+
+    // Build frustum
+    // Based on http://gamedev.stackexchange.com/questions/67431/deferred-tiled-shading-tile-frusta-calculation-in-opengl
+    // Which is again based on DICE's presentation
+    vec4 frustumRL = vec4(-projMat[0][0] * tileScale.x, 0.0f, tileBias.x, 0.0f);
+    vec4 frustumTL = vec4(0.0f, -projMat[1][1] * tileScale.y, tileBias.y, 0.0f);
+
+    // The doc said frustumOffset = vec4(0,0,1,0) but panda uses 
+    // apparently an inverted coordinate system
+    const vec4 frustumOffset = vec4(0.0f, 0.0f, -1.0f, 0.0f);
+
+    // Calculate frustum planes
+    Frustum frustum;
+    frustum.left   = normalize(frustumOffset - frustumRL);
+    frustum.right  = normalize(frustumOffset + frustumRL);
+    frustum.top    = normalize(frustumOffset - frustumTL);
+    frustum.bottom = normalize(frustumOffset + frustumTL);
+    frustum.near   = minDepthLinear;
+    frustum.far    = maxDepthLinear;
+
+    frustum.viewMat = viewMat;
+    frustum.mvpMat  = mvpMat;
+
+    // Reset data buffer (not neccessary, only for debugging)
+    #ifdef LIGHTING_CLEAR_BUFFER_EACH_FRAME
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                imageStore(destination, storageCoord+ivec2(x, y), ivec4(0) );
+            }
+        }
+    #endif  
+
+
+    int processedPointLights = 0;
+    int processesShadowPointLights = 0;
+
+    // Buffer layout:
+    // First 8 pixels store count
+    // Second/Third line store point lights
+    // Fourth/Fifth line stores shadow point lights
+
+
+    // Process Point Lights
+    ivec2 baseOffset = storageCoord + ivec2(0,1);
+    ivec2 currentOffset = ivec2(0);
+
+    for (int i = 0; i < countPointLight; i++) {
+        int index = arrayPointLight[i];
+        Light light = lights[index];
+        if (isPointLightInFrustum(light, frustum)) {
+            currentOffset = ivec2(processedPointLights % 8, processedPointLights / 8);
+            imageStore(destination, baseOffset + currentOffset, ivec4(index));
+            processedPointLights += 1;
+        }
+    }
+
+    // Process shadowed point lights
+    baseOffset = storageCoord + ivec2(0,3);
+    currentOffset = ivec2(0);
+
+    for (int i = 0; i < countPointLightShadow; i++) {
+        int index = arrayPointLightShadow[i];
+        Light light = lights[index];
+        if (isPointLightInFrustum(light, frustum)) {
+            currentOffset = ivec2(processesShadowPointLights % 8, processesShadowPointLights / 8);
+            imageStore(destination, baseOffset + currentOffset, ivec4(index));
+            processesShadowPointLights += 1;
+        }
+    }
+
+    imageStore(destination, storageCoord + ivec2(0, 0), ivec4(processedPointLights));
+    imageStore(destination, storageCoord + ivec2(1, 0), ivec4(processesShadowPointLights));
+
+    // float lightsVisibleFloat = float(processesShadowPointLights) / float(8.0);
+    // vec3 lightCountIndicator = vec3(lightsVisibleFloat, 1.0 - lightsVisibleFloat , 0);
+    // gl_FragColor = vec4(lightCountIndicator, 1);
+}

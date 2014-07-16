@@ -1,0 +1,100 @@
+#version 420
+
+
+#include "Includes/Configuration.include"
+#include "Includes/PositionReconstruction.include"
+
+in vec2 texcoord;
+
+uniform sampler2D currentComputation;
+uniform sampler2D lastFrame;
+uniform sampler2D lastPosition;
+
+uniform sampler2D positionBuffer;
+uniform sampler2D velocityBuffer;
+uniform sampler2D depthTex;
+
+layout(r16f) writeonly uniform image2D dofStorage;
+
+uniform int temporalProjXOffs;
+
+uniform mat4 lastMVP;
+uniform mat4 currentMVP;
+uniform vec3 cameraPosition;
+
+void main() {
+
+    // Fetch screen size, so we don't have to pass it as a shader input
+    ivec2 screenSize = textureSize(positionBuffer, 0);
+
+    // Screen coordinate (as int vec)
+    ivec2 screenCoord = ivec2(texcoord * vec2(screenSize.x, screenSize.y));
+
+    // Screen coordinate (half resolution only)
+    ivec2 computationCoord = ivec2( screenCoord.x/2, screenCoord.y);
+
+
+    // Compute dof factors
+    float bufferZ = texture(depthTex, texcoord).x;
+    float linearZ = getLinearZFromZ(bufferZ);
+    float dofFactor = (linearZ-4.0)/1.0;
+    // dofFactor = 0.0;
+
+    // Store dof in the storage
+    imageStore(dofStorage, screenCoord, vec4(saturate(dofFactor)) );
+
+    vec3 position = texture(positionBuffer, texcoord).rgb;
+
+    // The last computed value (half resolution only, but up-to-date)
+    vec4 lastComputedValue = texelFetch(currentComputation, computationCoord, 0);
+
+    vec2 velocity = -texture(velocityBuffer, texcoord).rg / 255.0;
+
+    vec2 lastFrameTexcoord = texcoord - velocity;
+
+    vec4 oldProjectedColor = texture(lastFrame, lastFrameTexcoord);
+    vec3 oldProjectedPos = texture(lastPosition, lastFrameTexcoord).rgb;
+
+    float distanceToCamera = distance(cameraPosition, position);
+
+    float reliability = 1.0 - saturate(distance(oldProjectedPos, position) / distanceToCamera * 200.0);
+
+    // reliability *= 0.5;
+
+    // reliability *= 1.0 - saturate(distance(lastFrameTexcoord, texcoord) * 32.0);
+    // reliability = 1.0;
+
+    // Fetch the up-to-date position from the buffer
+    // vec4 position = vec4(texelFetch(positionBuffer, screenCoord, 0).rgb, 1);
+
+    vec4 result;
+
+    // if (distance(finalValue, vec3(1,0,0)) < 0.0001) {
+    //     finalValue = lastComputedValue.rgb;
+    //     // finalValue = lastFrameValue.rgb;
+    // }
+
+    // result.xyz = vec3(d);
+
+    result = mix(lastComputedValue, oldProjectedColor, saturate(reliability));
+
+    // result = oldProjectedColor;
+    // result = vec4(0,0,0,1);
+
+    // If we have a newer value, use this
+    // if ( (screenCoord.x) % 2 == 1-temporalProjXOffs) {
+    if ( (screenCoord.x+screenCoord.y) % 2 == 1-temporalProjXOffs) {
+        result = lastComputedValue;
+        // result = result.x == ((screenCoord.x+screenCoord.y)%2) ? vec4(0,1,0,1) : vec4(1,0,0,1);
+        // result = vec4(0,1,0,1);
+    } 
+
+
+    // result.xyz *= 4.0;
+    // result = saturate(result);
+    // result = texture(currentComputation, texcoord);
+
+
+    gl_FragColor = vec4( result );
+
+}

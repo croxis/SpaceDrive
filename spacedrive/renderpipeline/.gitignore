@@ -1,0 +1,13 @@
+# Compiled
+.pyd
+.pyc
+*.pyc
+Shader/Cache/
+*.ignore
+PerformanceTesting
+MeshSimplifier
+Assets/
+*.sublime-workspace
+Core/Windows/
+Core/Linux/
+Cython/
