@@ -13,7 +13,7 @@ import sandbox
 
 from direct.directnotify.DirectNotify import DirectNotify
 
-from panda3d.core import loadPrcFileData
+from panda3d.core import loadPrcFile, loadPrcFileData
 from panda3d.core import VirtualFileSystem
 
 from .import celestial_components
@@ -24,6 +24,7 @@ from .import orbit_system
 from .import physics_system
 
 from .import universals
+
 log = DirectNotify().newCategory("SpaceDrive")
 
 vfs = VirtualFileSystem.getGlobalPtr()
@@ -68,6 +69,7 @@ def init(
         # processes.)
         loadPrcFileData('', 'window-type none\naudio-library-name null')
     else:
+        loadPrcFile("configuration.prc")
         loadPrcFileData('', 'frame-rate-meter-scale 0.035')
         loadPrcFileData('', 'frame-rate-meter-side-margin 0.1')
         loadPrcFileData('', 'show-frame-rate-meter 1')
