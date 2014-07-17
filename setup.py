@@ -6,5 +6,7 @@ setup(name='SpaceDrive',
       author='croxis',
       author_email='croxis@yahoo.com',
       url='http://www.python.org/sigs/distutils-sig/',
-      packages=['spacedrive'],
+      packages=['spacedrive',
+                'spacedrive/renderpipeline',
+                'spacedrive/renderpipeline/classes'],
      )

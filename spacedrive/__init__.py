@@ -16,6 +16,8 @@ from direct.directnotify.DirectNotify import DirectNotify
 from panda3d.core import loadPrcFile, loadPrcFileData
 from panda3d.core import VirtualFileSystem
 
+from .renderpipeline import RenderingPipeline
+
 from .import celestial_components
 from .import physics_components
 
@@ -81,7 +83,10 @@ def init(
         loadPrcFileData("", "textures-power-2 none")
     log.info("Loading Sandbox")
     sandbox.init(log_level=log_level)
-    sandbox.base.setSleep(0.001)
+    print("Base:", type(sandbox.base))
+    sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
+    sandbox.base.render_pipeline.loadSettings('pipeline.ini')
+    sandbox.base.render_pipeline.create()
     #sandbox.base.disableMouse()
 
 
