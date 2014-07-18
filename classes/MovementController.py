@@ -9,7 +9,7 @@ class MovementController:
         self.movement = [0, 0, 0]
         self.velocity = Vec3(0.0)
         self.hprMovement = [0,0]
-        self.speed = 0.5
+        self.speed = 0.2
         self.initialPosition = Vec3(0)
         self.initialDestination = Vec3(0)
         self.mouseEnabled = False
@@ -223,8 +223,8 @@ class MovementController:
         # display camera pos
         elif selectedOption == 4:
             print "Debug information:"
-            print "\tCamera is at", self.showbase.camera.getPos(self.showbase.render)
-            print "\tCamera hpr is", self.showbase.camera.getHpr(self.showbase.render)
+            print "\tCamera is at", self.showbase.cam.getPos(self.showbase.render)
+            print "\tCamera hpr is", self.showbase.cam.getHpr(self.showbase.render)
 
         # show scene graph
         elif selectedOption == 5:

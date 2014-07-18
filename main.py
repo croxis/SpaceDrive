@@ -55,20 +55,21 @@ class Main(ShowBase, DebugObject):
         self.renderPipeline.create()
 
         # Load some demo source
-        # self.sceneSource = "Demoscene.ignore/sponza2.egg"
-        # self.sceneSource = "Scene/Scene2.egg"
-        self.sceneSource = "BlenderMaterialLibrary/MaterialLibrary.egg"
+        # self.sceneSource = "Demoscene.ignore/sponza.egg"
+        self.sceneSource = "Models/Cube/Model.egg"
+        # self.sceneSource = "BlenderMaterialLibrary/MaterialLibrary.egg"
         self.usePlane = False
 
-        self.debug("Loading Scene '" + self.sceneSource + "' ..")
+
+        self.debug("Loading Scene '" + self.sceneSource + "'")
         self.scene = self.loader.loadModel(self.sceneSource)
         # self.scene.setScale(0.05)
         # self.scene.flattenStrong()
 
         # Load ground plane if configured
         if self.usePlane:
-            self.groundPlane = self.loader.loadModel("Scene/Plane.egg")
-            self.groundPlane.setPos(0, 0, -0.1)
+            self.groundPlane = self.loader.loadModel("Models/Plane/Model.egg")
+            self.groundPlane.setPos(0, 0, -0.01)
             self.groundPlane.setScale(2.0)
             self.groundPlane.setTwoSided(True)
             self.groundPlane.flattenStrong()
@@ -78,17 +79,20 @@ class Main(ShowBase, DebugObject):
         # self.scene.setTwoSided(True)
 
         self.debug("Flattening scene and parenting to render")
-        self.scene.flattenStrong()
+        # self.convertToPatches(self.scene)
+        # self.scene.flattenStrong()
+
         self.scene.reparentTo(self.render)
 
         # Create movement controller (Freecam)
         self.controller = MovementController(self)
         # self.controller.setInitialPosition(Vec3(-30, 30, 25), Vec3(0, 0, 0))
-        self.controller.setInitialPosition(Vec3(5, -5, 2.5), Vec3(0, 0, 2))
+        self.controller.setInitialPosition(Vec3(3, 3, 3), Vec3(0, 0, 1))
         self.controller.setup()
         # base.disableMouse()
-        # base.camera.setPos(-30, 30, 25)
-        # base.camera.lookAt(0,0,0)
+        # base.camera.setPos(0.988176, 2.53928, 2.75053)
+        # base.camera.setHpr(-57.69, -5.67802, 0)
+
         # base.accept("c", PStatClient.connect)
         # base.accept("v", self.bufferViewer.toggleEnable)
 
@@ -98,6 +102,10 @@ class Main(ShowBase, DebugObject):
 
         # self.scene.node().setAttrib(ShadeModelAttrib.make(ShadeModelAttrib.MSmooth),
         # 100000)
+
+        self.sceneWireframe = False
+
+        self.accept("f3", self.toggleSceneWireframe)
 
         # Hotkey to reload all shaders
         self.accept("r", self.setShaders)
@@ -123,7 +131,7 @@ class Main(ShowBase, DebugObject):
 
         # Add some shadow casting lights
         for i in range(1):
-            # break
+            break
             angle = float(i) / 8.0 * math.pi * 2.0
 
             pos = Vec3(math.sin(angle) * 10.0 + 10, math.cos(angle) * 10.0, 20)
@@ -135,8 +143,8 @@ class Main(ShowBase, DebugObject):
             light.setColor(Vec3(1))
             # light.setColor(colors[i]*1.0)
             light.setPos(pos)
-            light.setShadowMapResolution(2048)
-            light.setCastsShadows(True)
+            # light.setShadowMapResolution(2048)
+            # light.setCastsShadows(True)
 
             # add light
             self.renderPipeline.addLight(light)
@@ -162,29 +170,33 @@ class Main(ShowBase, DebugObject):
                 self.renderPipeline.addLight(light)
                 self.lights.append(light)
 
-        ambient = PointLight()
-        ambient.setRadius(300.0)
-        ambient.setPos(Vec3(10, 10, 10))
-        ambient.setColor(Vec3(1.0))
-        self.renderPipeline.addLight(ambient)
+        contrib = 1.0
 
+        for x,y in [(-1,-1), (-1,1), (1,-1), (1,1)]:
+            ambient = PointLight()
+            ambient.setRadius(400.0)
+            ambient.setPos(Vec3(120*x + 2, 120*y - 3, 100))
+            ambient.setColor(Vec3(contrib))
+            # ambient.setShadowMapResolution(2048)
+            # ambient.setCastsShadows(True)
+            self.renderPipeline.addLight(ambient)
 
-        ambient = PointLight()
-        ambient.setRadius(30000.0)
-        ambient.setPos(Vec3(10, 10, 10000))
-        ambient.setColor(Vec3(1.0))
-        self.renderPipeline.addLight(ambient)
+            contrib *= 0.4
+            # break
 
-
-
-        # self.loadLights("Demoscene.ignore/sponza-lights.egg")
-
-        # create skybox
-#
+        self.skybox = None
         self.loadSkybox()
 
         # set default object shaders
         self.setShaders()
+
+    def toggleSceneWireframe(self):
+        self.sceneWireframe = not self.sceneWireframe
+
+        if self.sceneWireframe:
+            self.scene.setRenderModeWireframe()
+        else:
+            self.scene.clearRenderMode()
 
     def loadLights(self, scene):
         model = self.loader.loadModel(scene)
@@ -223,8 +235,19 @@ class Main(ShowBase, DebugObject):
             self.scene.setShader(self.renderPipeline.getDefaultObjectShader(False))
             self.renderPipeline.reloadShaders()
 
-        self.skybox.setShader(BetterShader.load(
-            "Shader/DefaultObjectShader/vertex.glsl", "Shader/Skybox/fragment.glsl"))
+        if self.skybox:
+            self.skybox.setShader(BetterShader.load(
+                "Shader/DefaultObjectShader/vertex.glsl", "Shader/Skybox/fragment.glsl"))
+
+    def convertToPatches(self, model):
+        self.debug("Converting to patches ..")
+        for node in model.find_all_matches("**/+GeomNode"):
+            geom_node = node.node()
+            num_geoms = geom_node.get_num_geoms()
+            for i in range(num_geoms):
+                geom_node.modify_geom(i).make_patches_in_place()
+
+        self.debug("Converted!")
 
     def update(self, task=None):
         """ Main update task """
@@ -234,6 +257,8 @@ class Main(ShowBase, DebugObject):
         # time.sleep( max(0.0, 0.033))
         # time.sleep(-0.2)
         # return task.cont
+
+
         if False:
             animationTime = self.taskMgr.globalClock.getFrameTime() * 0.6
 
