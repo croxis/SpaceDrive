@@ -48,7 +48,7 @@ class PhysicsSystem(sandbox.EntitySystem):
         physcomp = entity.getComponent(phys_comps.BulletPhysicsComponent)
         if not physcomp.node.is_active():
             physcomp.node.setActive(True)
-        celestial_bodies = sandbox.getEntitiesByComponentType(cel_comps.CelestialComponent)
+        celestial_bodies = sandbox.get_entities_by_component_type(cel_comps.CelestialComponent)
         # Probably very expensive. Will need optimization later
         soi = False
         previousR = 0

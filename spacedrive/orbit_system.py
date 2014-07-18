@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 import sandbox
 
 from math import sin, cos, radians, degrees, sqrt, atan2
-from panda3d.core import LPoint3d, NodePath, PointLight, Vec4
+from panda3d.core import LPoint3d, Vec3
 import yaml
 
 from .import celestial_components as cel_comp
@@ -15,17 +15,22 @@ from .import render_components as render_comps
 from .import surface_mesh
 from .import universals
 
+from .renderpipeline.classes.DirectionalLight import DirectionalLight
+from .renderpipeline.classes.PointLight import PointLight
+
 from direct.directnotify.DirectNotify import DirectNotify
 
-log = DirectNotify().newCategory("SpaceDrive OrbitSystem")
+log = DirectNotify().newCategory("SpaceDrive-OrbitSystem")
+log.setSeverity(3)
 
 is2d = False
 
 
 class OrbitSystem(sandbox.EntitySystem):
     """Positions and moves celestial bodies in orbit."""
+
     def addParentPos(self, displacement, childComponent):
-        for component in sandbox.getComponents(cel_comp.CelestialComponent):
+        for component in sandbox.get_components(cel_comp.CelestialComponent):
             if component.nodePath == childComponent.nodePath.getParent():
                 if component.nodePath in self.solarsystemroots.values():
                     pass
@@ -42,7 +47,7 @@ class OrbitSystem(sandbox.EntitySystem):
         component = entity.getComponent(cel_comp.CelestialComponent)
         if component.orbit:
             # print component.nodePath, self.get2DBodyPosition(component.nodePath, universals.day)
-            #component.nodePath.setPos(self.get2DBodyPosition(component, universals.day))
+            # component.nodePath.setPos(self.get2DBodyPosition(component, universals.day))
             component.true_pos = calc_body_pos(component, universals.day)
             #NOTE: truePos is only get position relative to the parent body. We need
             # to convert this to heliocentric
@@ -53,7 +58,7 @@ class OrbitSystem(sandbox.EntitySystem):
             #to the end step function to prevent celestial motion jitters
             #as we have no guruntee of order
             component.true_pos += self.addParentPos(LPoint3d(0, 0, 0),
-                                                   component)
+                                                    component)
             #print component.nodePath, component.truePos
 
 
@@ -78,29 +83,32 @@ def create_solar_system(name='Sol', database={}):
 
 
 def generate_node(name, database, parent_component):
-    log.debug("Setting up body: " + name)
+    log.info("Setting up body: " + name)
+    log.debug("Raw data: " + str(database))
     body_entity = sandbox.create_entity()
-    celestial_component = cel_comp.CelestialComponent(
+    celestial_component = cel_comp.CelestialComponent(name,
+        sandbox.get_entity(parent_component),
         kind=database['type'])
     components = [celestial_component]
     if database['type'] == 'star':
         star_component = cel_comp.StarComponent(
             database['absolute magnitude'], database['spectral'])
         components.append(star_component)
-    if database['type'] != 'barycenter':
-        celestial_component.mass = database['mass']
-        celestial_component.radius = database['radius']
-        celestial_component.rotation = database['rotation']
-        if parent_component:
-            celestial_component.soi = calculate_soi(
-                celestial_component.orbit['a'],
-                celestial_component.mass,
-                parent_component.mass)
     if 'orbit' in database:
         celestial_component.orbit = database['orbit']
         celestial_component.period = database['period']
         celestial_component.true_pos = calc_body_pos(celestial_component,
                                                      universals.day)
+    if database['type'] != 'barycenter':
+        celestial_component.mass = database['mass']
+        celestial_component.radius = database['radius']
+        celestial_component.rotation = database['rotation']
+        if not isinstance(parent_component, cel_comp.SolarSystemComponent):
+            celestial_component.soi = calculate_soi(
+                celestial_component.orbit['a'],
+                celestial_component.mass,
+                parent_component.mass)
+
         # if name == "Earth":
         # #universals.spawn = component.truePos + LPoint3d(0, 6671000, 0)
         # universals.spawn = component.truePos + LPoint3d(6671000, 0, 0)
@@ -112,15 +120,21 @@ def generate_node(name, database, parent_component):
     if universals.run_client:
         render_component = render_comps.CelestialRenderComponent()
         components.append(render_component)
-        render_component.mesh = surface_mesh.make_planet(name=name, scale=celestial_component.radius)
+        render_component.mesh = surface_mesh.make_planet(name=name,
+                                                         scale=celestial_component.radius)
         render_component.mesh.reparent_to(sandbox.base.render)
         sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
-            render_component.light = render_component.mesh.attach_new_node(
-                PointLight("sunPointLight")
-            )
-            render_component.light.node().set_color(Vec4(1, 1, 1, 1))
-            sandbox.base.render.set_light(render_component.light)
+            #light = DirectionalLight()
+            '''render_component.light = render_component.mesh.node_path.attach_new_node(
+                light
+            )'''
+            #render_component.light.node().set_color(Vec4(1, 1, 1, 1))
+            render_component.light = DirectionalLight()
+            render_component.light.setColor(Vec3(1, 1, 1))
+            # Direction is where light is coming from.
+            render_component.light.setDirection(Vec3(1, 1, 1))
+            sandbox.base.render_pipeline.addLight(render_component.light)
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['texture'],
                                                night_path=database['night'],

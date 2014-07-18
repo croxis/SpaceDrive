@@ -1,12 +1,21 @@
+# ## Python 3 look ahead imports ###
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexData
 from panda3d.core import GeomVertexFormat, GeomVertexWriter
 from panda3d.core import Material, NodePath, Shader, Texture, TextureStage
 from panda3d.core import VBase4, Vec3
 
+from .renderpipeline.classes.BetterShader import BetterShader
+
 
 def myNormalize(myVec):
     myVec.normalize()
     return myVec
+
 
 format = GeomVertexFormat.getV3n3c4t2()
 vdata = GeomVertexData('quadFace', format, Geom.UHDynamic)
@@ -17,36 +26,38 @@ texcoord = GeomVertexWriter(vdata, 'texcoord')
 
 
 def create_mesh(parentnp, debug=False, invert=False):
-    '''This creates a simple 17x17 grid mesh for the sides of our cube.
+    """This creates a simple 17x17 grid mesh for the sides of our cube.
     The ultimate goal is to use a LOD system, probably based on quadtrees.
-    If debug is true then we get a color gradiant on our vertexes.'''
+    If debug is true then we get a color gradiant on our vertexes."""
     x = -1.0
     y = -1.0
     vertex_count = 0
     u = 0.0
     v = 0.0
 
-    WIDTH_STEP = 2/16.0
+    WIDTH_STEP = 2 / 16.0
 
     while y <= 1.0:
         while x <= 1.0:
             vertex.addData3f(x, y, 0)
             if invert:
-                normal.addData3f(myNormalize((Vec3(2*x+1, 2*y+1, 2*0-1))))
+                normal.addData3f(
+                    myNormalize((Vec3(2 * x + 1, 2 * y + 1, 2 * 0 - 1))))
             else:
-                normal.addData3f(myNormalize((Vec3(2*x-1, 2*y-1, 2*0-1))))
+                normal.addData3f(
+                    myNormalize((Vec3(2 * x - 1, 2 * y - 1, 2 * 0 - 1))))
             if debug:
                 color.addData4f(1.0, u, v, 1.0)
             texcoord.addData2f(u, v)
             vertex_count += 1
             x += WIDTH_STEP
-            u += WIDTH_STEP/2.0
+            u += WIDTH_STEP / 2.0
         x = -1.0
         u = 0
         y += WIDTH_STEP
-        v += WIDTH_STEP/2.0
+        v += WIDTH_STEP / 2.0
 
-    #print vertex_count
+    # print vertex_count
     triangles = []
 
     for y in range(0, 16):
@@ -54,16 +65,16 @@ def create_mesh(parentnp, debug=False, invert=False):
             v = 17 * y + x
             tri = GeomTriangles(Geom.UHDynamic)
             tri.addVertex(v)
-            tri.addVertex(v+1)
-            tri.addVertex(v+17)
+            tri.addVertex(v + 1)
+            tri.addVertex(v + 17)
             tri.closePrimitive()
             triangles.append(tri)
 
             tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v+1)
-            tri.addVertex(v+18)
-            tri.addVertex(v+17)
-            
+            tri.addVertex(v + 1)
+            tri.addVertex(v + 18)
+            tri.addVertex(v + 17)
+
             tri.closePrimitive()
             triangles.append(tri)
 
@@ -77,10 +88,11 @@ def create_mesh(parentnp, debug=False, invert=False):
 
 
 class Body(object):
-    '''Generic class for cellestial bodies with NodePath like interfaces'''
+    """Generic class for celestial bodies with NodePath like interfaces."""
+
     def __init__(self, name, scale=1, debug=False):
-        '''Debug will generate colored pixles for fun time. self.init()
-        is called for specific body type inits'''
+        """Debug will generate colored pixles for fun time. self.init()
+        is called for specific body type inits."""
         self.node_path = NodePath(name)
         self.sides = []
         for i in range(0, 6):
@@ -123,18 +135,22 @@ class Body(object):
 class Atmosphere(Body):
     '''planet is a parent nodepath that the 6 side mesh nodepaths will parent to.
     planet can be moved, scale, and rotated with no problems'''
+
     def init(self):
-        '''Debug will generate colored pixles for fun time'''
-        shaders = Shader.load(Shader.SLGLSL, 'planet_atmosphere_vert.glsl', 'planet_atmosphere_frag.glsl')
+        """Debug will generate colored pixels for fun time."""
+        shaders = BetterShader.load('Shader/Planet/planet_atmosphere_vert.glsl',
+                                    'Shader/Planet/planet_atmosphere_frag.glsl')
         self.node_path.setShader(shaders)
         self.set_scale(1.025)
 
 
 class Surface(Body):
-    '''planet is a parent nodepath that the 6 side mesh nodepaths will parent to.
-    planet can be moved, scale, and rotated with no problems'''
+    """planet is a parent nodepath that the 6 side mesh nodepaths will parent to.
+    planet can be moved, scale, and rotated with no problems"""
+
     def init(self):
-        shaders = Shader.load(Shader.SLGLSL, 'planet_surface_vert.glsl', 'planet_surface_frag.glsl')
+        shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
+                                    'Shader/Planet/surface_fragment.glsl')
         self.node_path.setShader(shaders)
         tex = Texture()
 
@@ -159,7 +175,9 @@ class Surface(Body):
         North pole is z-up'''
         for i in range(0, 6):
             self.sides[i].setShaderInput('colorTexture',
-                loader.loadTexture(texture_path.replace('#', str(i))))
+                                         loader.loadTexture(
+                                             texture_path.replace('#',
+                                                                  str(i))))
 
     def set_textures(self, texture_path='', night_path='', gloss_path=''):
         '''MultiTextures the surface. t_path is a string in the same format as
@@ -174,23 +192,29 @@ class Surface(Body):
             self.sides[i].set_shader_input('colorTexture', texture)
             if night_path:
                 self.sides[i].set_shader_input('nightTesture',
-                    loader.loadTexture(night_path.replace('#', str(i))))
+                                               loader.loadTexture(
+                                                   night_path.replace('#',
+                                                                      str(i))))
             if gloss_path:
                 self.sides[i].set_shader_input('glossTexture',
-                    loader.loadTexture(gloss_path.replace('#', str(i))))
+                                               loader.loadTexture(
+                                                   gloss_path.replace('#',
+                                                                      str(i))))
 
     def set_ambient(self, r, g, b, a):
-        self.material.set_ambient(VBase4(float(r), float(g), float(b), float(a)))
+        self.material.set_ambient(
+            VBase4(float(r), float(g), float(b), float(a)))
 
     def set_diffuse(self, r, g, b, a):
-        self.material.set_diffuse(VBase4(float(r), float(g), float(b), float(a)))
+        self.material.set_diffuse(
+            VBase4(float(r), float(g), float(b), float(a)))
 
     def set_specular(self, r, g, b, a):
-        self.material.set_specular(VBase4(float(r), float(g), float(b), float(a)))
+        self.material.set_specular(
+            VBase4(float(r), float(g), float(b), float(a)))
 
     def set_shininess(self, n):
         self.material.set_shininess(n)
-
 
 
 def make_star(name='star', scale=1, debug=False):
