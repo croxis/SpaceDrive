@@ -1,9 +1,11 @@
 
 import math
+from os.path import join
+
 from panda3d.core import TransparencyAttrib, Texture, Vec2, NodePath, PTAInt
 from panda3d.core import Mat4, CSYupRight, TransformState, CSZupRight
 from panda3d.core import PTAFloat, PTALMatrix4f, UnalignedLMatrix4f, LVecBase2i
-from panda3d.core import PTAVecBase3f, WindowProperties
+from panda3d.core import PTAVecBase3f, WindowProperties, OmniBoundingVolume
 
 from direct.gui.OnscreenImage import OnscreenImage
 
@@ -74,11 +76,17 @@ class RenderingPipeline(DebugObject):
         DebugObject.__init__(self, "RenderingPipeline")
         self.showbase = showbase
         self.settings = None
+        self.rootDirectory = "."
 
     def loadSettings(self, filename):
         """ Loads the pipeline settings from an ini file """
         self.settings = PipelineSettingsManager()
         self.settings.loadFromFile(filename)
+
+    def setRootDirectory(self, directory):
+        """ Sets the root directory of this pipeline, all assets
+        will be loaded relative to this directory """
+        self.rootDirectory = directory.replace("\\", "/").rstrip("/")
 
     def getSettings(self):
         """ Returns the current pipeline settings """
@@ -88,6 +96,7 @@ class RenderingPipeline(DebugObject):
         """ Creates this pipeline """
 
         self.debug("Setting up render pipeline")
+        self.debug("Root directory is '" + self.rootDirectory + "'")
 
         if self.settings is None:
             self.error("You have to call loadSettings first!")
@@ -95,7 +104,7 @@ class RenderingPipeline(DebugObject):
 
         # Store globals, as cython can't handle them
         self.debug("Setting up globals")
-        Globals.load(self.showbase)
+        Globals.load(self.showbase, self.rootDirectory)
 
         # We use PTA's for shader inputs, because that's faster than
         # using setShaderInput
@@ -360,7 +369,7 @@ class RenderingPipeline(DebugObject):
                 "lightsPerTile", self.lightPerTileStorage)
 
         # Shader inputs for the occlusion blur passes
-        if self.settings.ssdoEnabled:
+        if self.settings.ssdoEnabled and self.haveCombiner:
             self.blurOcclusionH.setShaderInput(
                 "colorTex", self.blurOcclusionV.getColorTexture())
             self.blurOcclusionV.setShaderInput(
@@ -449,7 +458,7 @@ class RenderingPipeline(DebugObject):
 
     def _loadFallbackCubemap(self):
         """ Loads the cubemap for image based lighting """
-        cubemap = self.showbase.loader.loadCubeMap("Cubemap/#.png")
+        cubemap = self.showbase.loader.loadCubeMap(join(self.rootDirectory, "Data/Cubemaps/Default/#.png"))
         cubemap.setMinfilter(Texture.FTLinearMipmapLinear)
         cubemap.setMagfilter(Texture.FTLinearMipmapLinear)
         cubemap.setFormat(Texture.F_srgb_alpha)
@@ -699,7 +708,7 @@ class RenderingPipeline(DebugObject):
                 "Shader/DefaultObjectShader/vertex.glsl",
                 "Shader/DefaultObjectShader/fragment.glsl")
         else:
-            raise Exception("Tesselation is only experimental!")
+            self.warn("Tesselation is only experimental! Remember to convert the geometry to patches first!")
 
             shader = BetterShader.load(
                 "Shader/DefaultObjectShader/vertex.glsl",
