@@ -83,10 +83,6 @@ def init(
         loadPrcFileData("", "textures-power-2 none")
     log.info("Loading Sandbox")
     sandbox.init(log_level=log_level)
-    sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
-    sandbox.base.render_pipeline.loadSettings('pipeline.ini')
-    sandbox.base.render_pipeline.create()
-    #sandbox.base.disableMouse()
 
 
 def init_system(system, component=None):
@@ -103,7 +99,12 @@ def init_system(system, component=None):
 def init_graphics():
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
-    log.warning("TODO: Implement")
+    log.warning("TODO: Finish Implement")
+    sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
+    sandbox.base.render_pipeline.loadSettings('pipeline.ini')
+    sandbox.base.render_pipeline.create()
+    #sandbox.base.camLens.set_far(20000000)
+    sandbox.base.disableMouse()
 
 
 def init_client_net(system, component=None, address='127.0.0.1', port=1999):

@@ -181,10 +181,10 @@ class GUISystem(sandbox.EntitySystem):
             self.browser.GetMainFrame().LoadString(f.read(), 'localhost')
 
     def on_mouse_down(self):
-        '''This logic is set up for an ui where the mouse will be interacting with
-        both ui elements and in world elements, such as an rts, tbs, or simulation
-        game. This requires checking if the pixel the mouse clicked on is ui or
-        not.
+        """This logic is set up for an ui where the mouse will be interacting
+        with both ui elements and in world elements, such as an rts, tbs, or
+        simulation game. This requires checking if the pixel the mouse clicked
+        on is ui or not.
 
         We do this by checking the alpha level of the ui texture. If there is
         no alpha we hand off to the other parts of the mouse ui logic. If there
@@ -193,7 +193,7 @@ class GUISystem(sandbox.EntitySystem):
         It is advised to create another mouse click event that is fired when
         alpha = 0 and have the additional logic listen for that. Otherwise
         anything listening to mouse1 and mouse1-up will fire regardless of
-        the position of the mouse.'''
+        the position of the mouse."""
 
         if sandbox.base.win.has_pointer(0):
             x = int(sandbox.base.win.get_pointer(0).get_x())
