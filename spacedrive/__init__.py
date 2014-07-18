@@ -83,7 +83,6 @@ def init(
         loadPrcFileData("", "textures-power-2 none")
     log.info("Loading Sandbox")
     sandbox.init(log_level=log_level)
-    print("Base:", type(sandbox.base))
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
     sandbox.base.render_pipeline.create()
