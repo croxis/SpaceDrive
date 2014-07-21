@@ -2,9 +2,9 @@ from panda3d.core import LPoint3d, NodePath
 
 
 class SolarSystemComponent:
-    def __init__(self, name='Solar System', root_node=NodePath("Root")):
+    def __init__(self, name='Solar System'):
         self.name = name
-        self.root_node = root_node
+        self.root_node = NodePath(name)
 
 
 '''Types of bodies:

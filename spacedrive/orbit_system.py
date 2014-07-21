@@ -10,10 +10,10 @@ from math import sin, cos, radians, degrees, sqrt, atan2
 from panda3d.core import LPoint3d, Vec3
 import yaml
 
-from .import celestial_components as cel_comp
-from .import render_components as render_comps
-from .import surface_mesh
-from .import universals
+from . import celestial_components as cel_comp
+from . import render_components as render_comps
+from . import surface_mesh
+from . import universals
 
 from .renderpipeline.classes.DirectionalLight import DirectionalLight
 from .renderpipeline.classes.PointLight import PointLight
@@ -29,27 +29,36 @@ is2d = False
 class OrbitSystem(sandbox.EntitySystem):
     """Positions and moves celestial bodies in orbit."""
 
-    def addParentPos(self, displacement, childComponent):
-        for component in sandbox.get_components(cel_comp.CelestialComponent):
-            if component.nodePath == childComponent.nodePath.getParent():
-                if component.nodePath in self.solarsystemroots.values():
+    def add_parent_pos(self, displacement, child_component):
+        parent_node_path = child_component.node_path.get_parent()
+        parent_entity = parent_node_path.get_python_tag('entity')
+        if parent_entity:
+            parent_component = parent_entity.get_component(cel_comp.CelestialComponent)
+            if parent_component:
+                displacement += self.add_parent_pos(displacement, parent_component)
+                displacement += parent_component.true_pos
+        return displacement
+        '''for component in sandbox.get_components(cel_comp.CelestialComponent):
+            if component.node_path == childComponent.node_path.getParent():
+                if component.node_path in self.solarsystemroots.values():
                     pass
                 else:
-                    displacement += self.addParentPos(displacement, component)
+                    displacement += self.add_parent_pos(displacement,
+                                                        component)
                     displacement += component.truePos
-        return displacement
+        return displacement'''
 
     def process(self, entity):
         """Gets the xyz position of the body, relative to its parent, on the given day before/after the date of element. Units will be in AU."""
         # Static bodies for now
         # Also clock should not be here. Put in another system.
         # universals.day += globalClock.getDt() / 86400 * universals.TIMEFACTOR
-        component = entity.getComponent(cel_comp.CelestialComponent)
+        component = entity.get_component(cel_comp.CelestialComponent)
         if component.orbit:
             # print component.nodePath, self.get2DBodyPosition(component.nodePath, universals.day)
             # component.nodePath.setPos(self.get2DBodyPosition(component, universals.day))
             component.true_pos = calc_body_pos(component, universals.day)
-            #NOTE: truePos is only get position relative to the parent body. We need
+            # NOTE: truePos is only get position relative to the parent body. We need
             # to convert this to heliocentric
             # This only computes to the position of the parent body
             # We want to put moons into heliocentric coords as well
@@ -57,8 +66,8 @@ class OrbitSystem(sandbox.EntitySystem):
             #TODO: Do we really need to do this? If not this should be moved
             #to the end step function to prevent celestial motion jitters
             #as we have no guruntee of order
-            component.true_pos += self.addParentPos(LPoint3d(0, 0, 0),
-                                                    component)
+            component.true_pos += self.add_parent_pos(LPoint3d(0, 0, 0),
+                                                      component)
             #print component.nodePath, component.truePos
 
 
@@ -76,7 +85,7 @@ def create_from_yaml_file(self, filename):
 def create_solar_system(name='Sol', database={}):
     log.info("Generating solarsystem: " + name)
     entity = sandbox.create_entity()
-    component = cel_comp.SolarSystemComponent()
+    component = cel_comp.SolarSystemComponent(name)
     entity.add_component(component)
     for bodyName, bodyDB in database[name].items():
         generate_node(bodyName, bodyDB, component)
@@ -87,8 +96,9 @@ def generate_node(name, database, parent_component):
     log.debug("Raw data: " + str(database))
     body_entity = sandbox.create_entity()
     celestial_component = cel_comp.CelestialComponent(name,
-        sandbox.get_entity(parent_component),
-        kind=database['type'])
+                                                      sandbox.get_entity(
+                                                          parent_component),
+                                                      kind=database['type'])
     components = [celestial_component]
     if database['type'] == 'star':
         star_component = cel_comp.StarComponent(
@@ -109,32 +119,37 @@ def generate_node(name, database, parent_component):
                 celestial_component.mass,
                 parent_component.mass)
 
-        # if name == "Earth":
-        # #universals.spawn = component.truePos + LPoint3d(0, 6671000, 0)
-        # universals.spawn = component.truePos + LPoint3d(6671000, 0, 0)
+            # if name == "Earth":
+            # #universals.spawn = component.truePos + LPoint3d(0, 6671000, 0)
+            # universals.spawn = component.truePos + LPoint3d(6671000, 0, 0)
     if isinstance(parent_component, cel_comp.SolarSystemComponent):
         celestial_component.node_path.reparent_to(parent_component.root_node)
     else:
         celestial_component.node_path.reparent_to(parent_component.node_path)
+    celestial_component.node_path.set_python_tag('entity', body_entity)
 
     if universals.run_client:
         render_component = render_comps.CelestialRenderComponent()
         components.append(render_component)
+        '''render_component.mesh = surface_mesh.make_planet(name=name,
+                                                         scale=celestial_component.radius)'''
         render_component.mesh = surface_mesh.make_planet(name=name,
-                                                         scale=celestial_component.radius)
-        render_component.mesh.reparent_to(sandbox.base.render)
-        sandbox.send('make pickable', [render_component.mesh])
+                                                         scale=1)
+        #For porting to new render system only
+        if database['type'] != 'star':
+            render_component.mesh.reparent_to(sandbox.base.render)
+        #sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
-            #light = DirectionalLight()
+            # light = DirectionalLight()
             '''render_component.light = render_component.mesh.node_path.attach_new_node(
                 light
             )'''
             #render_component.light.node().set_color(Vec4(1, 1, 1, 1))
-            render_component.light = DirectionalLight()
+            '''render_component.light = DirectionalLight()
             render_component.light.setColor(Vec3(1, 1, 1))
             # Direction is where light is coming from.
             render_component.light.setDirection(Vec3(1, 1, 1))
-            sandbox.base.render_pipeline.addLight(render_component.light)
+            sandbox.base.render_pipeline.addLight(render_component.light)'''
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['textures'])
             render_component.mesh.set_ambient(1, 1, 1, 1)

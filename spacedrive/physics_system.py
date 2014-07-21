@@ -45,7 +45,7 @@ class PhysicsSystem(sandbox.EntitySystem):
         """Nab a copy of the solar system coordinates. No because of threading"""
 
     def process(self, entity):
-        physcomp = entity.getComponent(phys_comps.BulletPhysicsComponent)
+        physcomp = entity.get_component(phys_comps.BulletPhysicsComponent)
         if not physcomp.node.is_active():
             physcomp.node.setActive(True)
         celestial_bodies = sandbox.get_entities_by_component_type(cel_comps.CelestialComponent)
@@ -53,7 +53,7 @@ class PhysicsSystem(sandbox.EntitySystem):
         soi = False
         previousR = 0
         for body in celestial_bodies:
-            body_component = body.getComponent(cel_comps.CelestialComponent)
+            body_component = body.get_component(cel_comps.CelestialComponent)
             distance = (body_component.true_pos
                 - physcomp.get_true_pos()).length()
             if distance < body_component.soi:
@@ -67,7 +67,7 @@ class PhysicsSystem(sandbox.EntitySystem):
             #shipPhysics.currentSOI = universals.defaultSOIid
             log.warning("No SOI for " + str(entity))
 
-        celestial_component = sandbox.entities[physcomp.currentSOI].getComponent(
+        celestial_component = sandbox.entities[physcomp.currentSOI].get_component(
             cel_comps.CelestialComponent)
         vector = celestial_component.truePos - physcomp.get_true_pos()
         distance = vector.length() * 1000
@@ -104,8 +104,8 @@ class PhysicsSystem(sandbox.EntitySystem):
             print "Invalid"
             return
         ship = sandbox.entities[shipid]
-        shipPhysics = ship.getComponent(shipComponents.BulletPhysicsComponent)
-        shipThrust = ship.getComponent(shipComponents.ThrustComponent)
+        shipPhysics = ship.get_component(shipComponents.BulletPhysicsComponent)
+        shipThrust = ship.get_component(shipComponents.ThrustComponent)
         shipPhysics.currentThrust = shipThrust.forward / (100.0 * 4) * data.normal
         # Divide thrust by 400 as max thrust should be when engineering overloads
         # Power to engines. Current max overload is 400%

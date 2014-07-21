@@ -96,7 +96,7 @@ def init_system(system, component=None):
     sandbox.add_system(system)
 
 
-def init_graphics():
+def init_graphics(debug_mouse=False):
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
     log.warning("TODO: Finish Implement")
@@ -104,7 +104,8 @@ def init_graphics():
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
     sandbox.base.render_pipeline.create()
     #sandbox.base.camLens.set_far(20000000)
-    sandbox.base.disableMouse()
+    if not debug_mouse:
+        sandbox.base.disableMouse()
 
 
 def init_client_net(system, component=None, address='127.0.0.1', port=1999):
