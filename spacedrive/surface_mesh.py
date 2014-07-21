@@ -9,6 +9,8 @@ from panda3d.core import GeomVertexFormat, GeomVertexWriter
 from panda3d.core import Material, NodePath, Shader, Texture, TextureStage
 from panda3d.core import VBase4, Vec3
 
+import sandbox
+
 from .renderpipeline.classes.BetterShader import BetterShader
 
 
@@ -168,28 +170,46 @@ class Surface(Body):
             m.set_shader_input('glossTexture', tex)'''
 
     def set_texture(self, texture_path):
-        '''Textures the surface. texture_path is a string in the same format as
+        """Textures the surface. texture_path is a string in the same format as
         loader.loadCubeMap('texture_#.png') for a multifile cubemap. The orientation
         is a little different than what is described in the panda manual.
 
-        North pole is z-up'''
+        North pole is z-up."""
         for i in range(0, 6):
             self.sides[i].setShaderInput('colorTexture',
                                          loader.loadTexture(
                                              texture_path.replace('#',
                                                                   str(i))))
 
-    def set_textures(self, texture_path='', night_path='', gloss_path=''):
-        '''MultiTextures the surface. t_path is a string in the same format as
-        loader.loadCubeMap('texture_#.png') for a multifile cubemap. The orientation
-        is a little different than what is described in the panda manual.
+    def set_textures(self, texture_paths={}):
+        """MultiTextures the surface. t_path is a string in the same format as
+        loader.loadCubeMap('texture_#.png') for a multifile cubemap. The
+        orientation is a little different than what is described in the panda
+        manual.
 
-        North pole is z-up'''
+        North pole is z-up."""
         for i in range(0, 6):
-            texture = loader.loadTexture(texture_path.replace('#', str(i)))
-            texture.setMinfilter(Texture.FTLinearMipmapLinear)
-            texture.setAnisotropicDegree(4)
-            self.sides[i].set_shader_input('colorTexture', texture)
+            diffuse = sandbox.base.loader.loadTexture(texture_paths['diffuse'].replace('#',
+                                                                           str(i)))
+            diffuse.setMinfilter(Texture.FTLinearMipmapLinear)
+            diffuse.setAnisotropicDegree(4)
+            self.sides[i].set_texture(diffuse)
+            normal = sandbox.base.loader.loadTexture('Data/Textures/EmptyNormalTexture.png')
+            self.sides[i].set_texture(normal)
+            if 'specular' in texture_paths:
+                specular = sandbox.base.loader.loadTexture(texture_paths['specular'].replace('#',
+                                                                           str(i)))
+            else:
+                specular = sandbox.base.loader.loadTexture('Data/Textures/EmptySpecularTexture.png')
+            self.sides[i].set_texture(specular)
+            roughness = sandbox.base.loader.loadTexture('Data/Textures/EmptyRoughnessTexture.png')
+            self.sides[i].set_texture(roughness)
+            if 'night' in texture_paths:
+                self.sides[i].set_shader_input('nightTexture',
+                                               sandbox.base.loader.loadTexture(
+                                                   texture_paths['night'].replace('#',
+                                                                      str(i))))
+            '''self.sides[i].set_shader_input('colorTexture', texture)
             if night_path:
                 self.sides[i].set_shader_input('nightTesture',
                                                loader.loadTexture(
@@ -199,7 +219,7 @@ class Surface(Body):
                 self.sides[i].set_shader_input('glossTexture',
                                                loader.loadTexture(
                                                    gloss_path.replace('#',
-                                                                      str(i))))
+                                                                      str(i))))'''
 
     def set_ambient(self, r, g, b, a):
         self.material.set_ambient(

@@ -136,9 +136,7 @@ def generate_node(name, database, parent_component):
             render_component.light.setDirection(Vec3(1, 1, 1))
             sandbox.base.render_pipeline.addLight(render_component.light)
         elif database['type'] == 'solid' or database['type'] == 'moon':
-            render_component.mesh.set_textures(database['texture'],
-                                               night_path=database['night'],
-                                               gloss_path=database['Spec'])
+            render_component.mesh.set_textures(database['textures'])
             render_component.mesh.set_ambient(1, 1, 1, 1)
             render_component.mesh.set_diffuse(1, 1, 1, 1)
             render_component.mesh.set_specular(1, 1, 1, 1)
@@ -185,6 +183,7 @@ def calc_body_pos(component, time):
         zh = r * (sin(v + w) * sin(i))
     position = LPoint3d(xh, yh, zh)
     # If we are not a moon then our orbits are done in au.
+    # Moons are done in km
     # Our units in panda are m, so we convert to m
     if component.kind != cel_comp.TYPES['moon']:
         position *= 149598000
@@ -192,9 +191,9 @@ def calc_body_pos(component, time):
     return position
 
 
-def compute_e(self, E0, M, e):
+def compute_e(E0, M, e):
     """Iterative function for a higher accuracy of E."""
     E1 = E0 - (E0 - e * sin(E0) - M) / (1 - e * cos(E0))
     if abs(abs(degrees(E1)) - abs(degrees(E0))) > 0.001:
-        E1 = self.computeE(E1, M, e)
+        E1 = compute_e(E1, M, e)
     return E1
