@@ -4,6 +4,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import math
+
 from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexArrayFormat
 from panda3d.core import GeomVertexData, GeomVertexFormat, GeomVertexReader, GeomVertexWriter
 from panda3d.core import InternalName
@@ -249,7 +251,7 @@ class myGeom(object):
             self.color_lookup.append(color_index)
         #self.setMats()
 
-    def setMats(self): # This shows how to set up multi-texturing on a procedural geometry.
+    '''def setMats(self): # This shows how to set up multi-texturing on a procedural geometry.
         """Set the texture and normal maps"""
         color_attribs = []
         self.textureStages = []
@@ -271,7 +273,7 @@ class myGeom(object):
             color = self.color_lookup[index]
             texAttrib = color_attribs[color]
             newRenderState = self.geomnode.getGeomState(index).addAttrib(texAttrib,1)
-            self.geomnode.setGeomState(index, newRenderState)
+            self.geomnode.setGeomState(index, newRenderState)'''
 
     def getUVMapping(self):
         """Get the UV mapping from the myUVMapper class instance"""
@@ -867,7 +869,7 @@ class myUVMapper(object):
                             self.uvs[poly_index][uvi][0] = tumin + ((tumax - tumin) * 0.5)
 
 
-    def global_map(self,verts,polys,scale=1.0,offset=0.0,rotation=0.0):
+    def global_map(self, verts, polys, scale=1.0, offset=0.0, rotation=0.0):
         # Front UVs are flipped?
         """
         Adapted from UV-mapping plugin for AC3D.
@@ -998,188 +1000,6 @@ def create_mesh(debug=False, invert=False, width=32):
 
     return geom.geomnode
 
-    for y in frange(-1, 1 + width_size, width_size):
-        for x in frange(-1, 1 + width_size, width_size):
-            vertex.addData3f(x, y, 0)
-            normal.addData3f(
-                    normalize((Vec3(2 * x - 1, 2 * y - 1, 2 * 0 - 1))))
-            texcoord.addData2f(u, v)
-            u += width_size / 2
-        u = 0
-        v += width_size/2.0
-
-    for y in frange(-1, 1, width_size):
-        for x in frange(-1, 1, width_size*2):
-            v1 = Vec3(x, y, 0)
-            v2 = Vec3(x + width_size, y, 0)
-            v3 = Vec3(x, y + width_size, 0)
-            norm = getNorms(v1, v2, v3)
-            edge = normalize(v2 - v1)
-            tan, binorm = getBinorms(edge, norm)
-            # How do we not double up on setting these values?
-            # http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-13-normal-mapping/#Tangent_and_Bitangent
-
-
-    triangles = []
-
-    for y in range(0, width):
-        for x in range(0, width):
-            v = (width + 1) * y + x
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + (width+1))
-            tri.closePrimitive()
-            triangles.append(tri)
-
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + (width+2))
-            tri.addVertex(v + (width+1))
-            tri.closePrimitive()
-            triangles.append(tri)
-
-    mesh = Geom(vdata)
-    for t in triangles:
-
-        mesh.addPrimitive(t)
-    mnode = GeomNode('quadface')
-    mnode.addGeom(mesh)
-
-    return mnode
-
-
-
-
-    for y in frange(-1, 1, step_size):
-        for x in frange(-1, 1, step_size):
-            x1 = x
-            x2 = x + width_size
-            y1 = y
-            y2 = y + width_size
-            print("Generating vertex set:", (x1, y1), (x2, y1), (x1, y2), (x2, y2))
-            vertex.addData3f(x1, y1, 0)
-            vertex.addData3f(x2, y1, 0)
-            vertex.addData3f(x1, y2, 0)
-            vertex.addData3f(x2, y2, 0)
-
-            v1 = Vec3(x1, y1, 0) # Get the vertices
-            v2 = Vec3(x2, y1, 0)
-            v3 = Vec3(x1, y2, 0)
-            v4 = Vec3(x2, y2, 0)
-            norm = getNorms(v1, v2, v3)
-            edge = normalize_vec(v2 - v1)
-            tan, binorm = getBinorms(edge, norm)
-            for i in range(4):
-                normal.addData3f(norm)
-                binormal.addData3f(binorm)
-                tangent.addData3f(-tan)
-
-    triangles = []
-
-    #-2 as we are working in batches of 4
-    for y in range(0, width-2):
-        for x in range(0, width-2, 4):
-            v = (width + 1) * y + x
-            #print("Working on vertex", x, y, v)
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + 2)
-            tri.closePrimitive()
-            triangles.append(tri)
-
-            '''tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + 2)
-            tri.addVertex(v + 3)
-            tri.closePrimitive()
-            triangles.append(tri)
-
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + 4)
-            tri.addVertex(v + 3)
-            tri.closePrimitive()
-            triangles.append(tri)
-
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v + 4)
-            tri.addVertex(v + 3)
-            tri.addVertex(v + 6)
-            tri.closePrimitive()
-            triangles.append(tri)'''
-
-    mesh = Geom(vdata)
-    for t in triangles:
-        mesh.addPrimitive(t)
-    mnode = GeomNode('quadface')
-    mnode.addGeom(mesh)
-
-    return mnode
-    nodePath = parentnp.attachNewNode(mnode)
-    return nodePath
-    # OLD METHOD vvv
-
-    WIDTH_STEP = 2 / 16.0
-
-    while y <= 1.0:
-        while x <= 1.0:
-            vertex.addData3f(x, y, 0)
-            '''if invert:
-                normal.addData3f(
-                    normalize((Vec3(2 * x + 1, 2 * y + 1, 2 * 0 - 1))))
-                binormal.addData3f(
-                    normalize((Vec3(2 * x + 1, 2 * y + 1, 2 * 0 - 1))))
-                tangent.addData3f(
-                    normalize((Vec3(2 * x + 1, 2 * y + 1, 2 * 0 - 1))))
-            else:
-                normal.addData3f(
-                    normalize((Vec3(2 * x - 1, 2 * y - 1, 2 * 0 - 1))))'''
-            if debug:
-                color.addData4f(1.0, u, v, 1.0)
-            texcoord.addData2f(u, v)
-            vertex_count += 1
-            x += WIDTH_STEP
-            u += WIDTH_STEP / 2.0
-        x = -1.0
-        u = 0
-        y += WIDTH_STEP
-        v += WIDTH_STEP / 2.0
-
-    x = -1.0
-    y = -1.0
-    y = -1.0
-
-    # print vertex_count
-    triangles = []
-
-    for y in range(0, 16):
-        for x in range(0, 16):
-            v = 17 * y + x
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + 17)
-            tri.closePrimitive()
-            triangles.append(tri)
-
-            tri = GeomTriangles(Geom.UHDynamic)
-            tri.addVertex(v + 1)
-            tri.addVertex(v + 18)
-            tri.addVertex(v + 17)
-
-            tri.closePrimitive()
-            triangles.append(tri)
-
-    mesh = Geom(vdata)
-    for t in triangles:
-        mesh.addPrimitive(t)
-    mnode = GeomNode('quadface')
-    mnode.addGeom(mesh)
-    nodePath = parentnp.attachNewNode(mnode)
-    return nodePath
-
 mesh_node = create_mesh(debug=False, invert=False)
 
 
@@ -1187,7 +1007,6 @@ def create_side(parent_nodepath, debug=False, invert=False):
     mnode = GeomNode('quadface')
     mnode.add_geoms_from(mesh_node)
     return parent_nodepath.attach_new_node(mnode)
-
 
 
 class Body(object):
@@ -1273,7 +1092,7 @@ class Surface(Body):
     def load_shaders(self):
         shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
                                     'Shader/Planet/surface_fragment.glsl')
-        shaders = base.render_pipeline.getDefaultObjectShader(False)
+        #shaders = base.render_pipeline.getDefaultObjectShader(False)
         #self.node_path.set_shader(shaders)
         for m in self.sides:
             m.set_shader(shaders)
