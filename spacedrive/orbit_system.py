@@ -150,12 +150,14 @@ def generate_node(name, database, parent_component):
             # Direction is where light is coming from.
             render_component.light.setDirection(Vec3(1, 1, 1))
             sandbox.base.render_pipeline.addLight(render_component.light)'''
+            #Debug prototype purposes only
+            render_component.mesh.set_pos(10, 0, 0)
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['textures'])
-            render_component.mesh.set_ambient(1, 1, 1, 1)
-            render_component.mesh.set_diffuse(1, 1, 1, 1)
-            render_component.mesh.set_specular(1, 1, 1, 1)
-            render_component.mesh.set_shininess(100)
+            #render_component.mesh.set_ambient(1, 1, 1, 1)
+            #render_component.mesh.set_diffuse(1, 1, 1, 1)
+            #render_component.mesh.set_specular(1, 1, 1, 1)
+            #render_component.mesh.set_shininess(100)
 
     for component in components:
         body_entity.add_component(component)
