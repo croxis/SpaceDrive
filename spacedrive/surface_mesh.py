@@ -1078,11 +1078,11 @@ class Surface(Body):
         self.load_shaders()
 
     def load_shaders(self):
-        '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
-                                    'Shader/Planet/surface_fragment.glsl')'''
         shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
+                                    'Shader/Planet/surface_fragment.glsl')
+        '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
                                     'Shader/Planet/surface_fragment.glsl',
-                                    'Shader/Planet/surface_geometry.glsl')
+                                    'Shader/Planet/surface_geometry.glsl')'''
         #shaders = base.render_pipeline.getDefaultObjectShader(False)
         #self.node_path.set_shader(shaders)
         for m in self.sides:
