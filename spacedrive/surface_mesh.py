@@ -965,18 +965,6 @@ def create_mesh(debug=False, invert=False, width=32):
 
     From http://www.panda3d.org/forums/viewtopic.php?f=8&t=16930&p=98241"""
 
-    vdata = GeomVertexData('quadFace', format, Geom.UHDynamic)
-    vertex = GeomVertexWriter(vdata, 'vertex')
-    normal = GeomVertexWriter(vdata, 'normal')
-    texcoord = GeomVertexWriter(vdata, 'texcoord')
-    tangent = GeomVertexWriter(vdata, 'tangent')
-    binormal = GeomVertexWriter(vdata, 'binormal')
-    color = GeomVertexWriter(vdata, 'color')
-
-    vertex_count = 0
-    u = 0.0
-    v = 0.0
-
     # Vertex coord stepsize for given length in quads
     width_size = 2 / width
     # We are going to process verts in groups of 4
@@ -986,7 +974,7 @@ def create_mesh(debug=False, invert=False, width=32):
     vnorms = []
     for y in frange(-1, 1 + width_size, width_size):
         for x in frange(-1, 1 + width_size, width_size):
-            verts.append([x, y, 0])
+            verts.append([x, y, 1])
 
     for y in range(0, width):
         for x in range(0, width):
@@ -1090,8 +1078,11 @@ class Surface(Body):
         self.load_shaders()
 
     def load_shaders(self):
+        '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
+                                    'Shader/Planet/surface_fragment.glsl')'''
         shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
-                                    'Shader/Planet/surface_fragment.glsl')
+                                    'Shader/Planet/surface_fragment.glsl',
+                                    'Shader/Planet/surface_geometry.glsl')
         #shaders = base.render_pipeline.getDefaultObjectShader(False)
         #self.node_path.set_shader(shaders)
         for m in self.sides:
