@@ -49,7 +49,8 @@ class OrbitSystem(sandbox.EntitySystem):
         return displacement'''
 
     def process(self, entity):
-        """Gets the xyz position of the body, relative to its parent, on the given day before/after the date of element. Units will be in AU."""
+        """Gets the xyz position of the body, relative to its parent, on the
+        given day before/after the date of element. Units will be in AU."""
         # Static bodies for now
         # Also clock should not be here. Put in another system.
         # universals.day += globalClock.getDt() / 86400 * universals.TIMEFACTOR
@@ -131,13 +132,14 @@ def generate_node(name, database, parent_component):
     if universals.run_client:
         render_component = render_comps.CelestialRenderComponent()
         components.append(render_component)
-        '''render_component.mesh = surface_mesh.make_planet(name=name,
-                                                         scale=celestial_component.radius)'''
-        render_component.mesh = surface_mesh.make_planet(name=name,
-                                                         scale=1)
+
         #For porting to new render system only
         if database['type'] != 'star':
-            render_component.mesh.reparent_to(sandbox.base.render)
+            render_component.mesh = surface_mesh.make_planet(name=name,
+                                                             scale=1)
+            '''render_component.mesh = surface_mesh.make_planet(name=name,
+                                                         scale=celestial_component.radius)'''
+
         #sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
             # light = DirectionalLight()
@@ -158,6 +160,7 @@ def generate_node(name, database, parent_component):
             #render_component.mesh.set_diffuse(1, 1, 1, 1)
             #render_component.mesh.set_specular(1, 1, 1, 1)
             #render_component.mesh.set_shininess(100)
+        render_component.mesh.reparent_to(sandbox.base.render)
 
     for component in components:
         body_entity.add_component(component)

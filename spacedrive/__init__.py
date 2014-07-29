@@ -4,10 +4,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import os
 import sys
-
-if sys.version > '3':
-    long = int
 
 import sandbox
 
@@ -26,6 +24,9 @@ from .import orbit_system
 from .import physics_system
 
 from .import universals
+
+if sys.version > '3':
+    long = int
 
 log = DirectNotify().newCategory("SpaceDrive")
 
@@ -102,6 +103,8 @@ def init_graphics(debug_mouse=False):
     log.warning("TODO: Finish Implement")
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
+    print("Rootdir:", os.path.dirname(__file__) + '/renderpipeline')
+    sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline')
     sandbox.base.render_pipeline.create()
     #sandbox.base.camLens.set_far(20000000)
     if not debug_mouse:
