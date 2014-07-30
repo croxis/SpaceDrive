@@ -229,6 +229,8 @@ class GUISystem(sandbox.EntitySystem):
 
             image = PNMImage()
             self.handler.texture.store(image)
+            if not (0 <= x <= image.get_x_size() and 0 <= x <= image.get_y_size()):
+                return
             try:
                 image.get_alpha(x, y)
             except:

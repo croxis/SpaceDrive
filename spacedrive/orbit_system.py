@@ -17,7 +17,7 @@ from .import universals
 from .utils import blackbody
 
 from .renderpipeline.classes.DirectionalLight import DirectionalLight
-from .renderpipeline.classes.PointLight import PointLight
+from .renderpipeline.classes.Scatttering import Scattering
 
 from direct.directnotify.DirectNotify import DirectNotify
 
@@ -141,34 +141,30 @@ def generate_node(name, database, parent_component):
                                                              scale=1)
             '''render_component.mesh = surface_mesh.make_planet(name=name,
                                                          scale=celestial_component.radius)'''
+            if 'atmosphere' in database:
+                render_component.atmosphere = Scattering()
+                render_component.atmosphere.setSettings({
+                    'radiusGround': 0.001,
+                    'radiusAtmosphere': 0.0011,
+                    'radiusAtmosphere1': 0.00111
+                })
+                render_component.atmosphere.precompute()
+
 
         #sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
-            render_component.mesh = surface_mesh.make_star(name=name, scale=1)
+            color = blackbody.convert_K_to_RGB_float(database['temperature'])
+            render_component.mesh = surface_mesh.make_star(name=name, color=color)
             #Debug prototype purposes only
-            render_component.mesh.set_pos(2, 0, 0)
+            render_component.mesh.set_pos(3, 0, 0)
             #/Debug
             render_component.temperature = database['temperature']
-            color = blackbody.convert_K_to_RGB_float(database['temperature'])
-            render_component.mesh.set_shader_input('blackbody', color)
             render_component.light = DirectionalLight()
             render_component.light.setColor(color)
             render_component.light.setDirection(render_component.mesh.get_pos())
-            render_component.light.setShadowMapResolution(1024)
-            render_component.light.setCastsShadows(True)
+            #render_component.light.setShadowMapResolution(1024)
+            #render_component.light.setCastsShadows(True)
             sandbox.base.render_pipeline.addLight(render_component.light)
-
-
-            # light = DirectionalLight()
-            '''render_component.light = render_component.mesh.node_path.attach_new_node(
-                light
-            )'''
-            #render_component.light.node().set_color(Vec4(1, 1, 1, 1))
-            '''render_component.light = DirectionalLight()
-            render_component.light.setColor(Vec3(1, 1, 1))
-            # Direction is where light is coming from.
-            render_component.light.setDirection(Vec3(1, 1, 1))
-            sandbox.base.render_pipeline.addLight(render_component.light)'''
 
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['textures'])

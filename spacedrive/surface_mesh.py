@@ -8,9 +8,10 @@ import math
 import os
 
 from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexArrayFormat
-from panda3d.core import GeomVertexData, GeomVertexFormat, GeomVertexReader, GeomVertexWriter
+from panda3d.core import GeomVertexData, GeomVertexFormat, GeomVertexWriter
 from panda3d.core import CardMaker, InternalName
-from panda3d.core import Material, NodePath, Point3, Texture, TextureStage
+from panda3d.core import Material, NodePath, PerlinNoise3, PNMImage, Point3
+from panda3d.core import Texture, TextureStage
 from panda3d.core import VBase4, Vec3
 
 import sandbox
@@ -1148,8 +1149,9 @@ class Surface(Body):
         self.material.set_shininess(n)
 
 
-def make_star(name='star', scale=1, debug=False):
+def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False):
     card_maker = CardMaker(name)
+    card_maker.set_frame(-1, 1, -1, 1)
     node_path = NodePath(name)
     node = card_maker.generate()
     final_node_path = node_path.attach_new_node(node)
@@ -1162,6 +1164,33 @@ def make_star(name='star', scale=1, debug=False):
     final_node_path.set_shader_input('sphereRadius', 1.0)
     final_node_path.set_shader_input('myCamera', base.camera)
     final_node_path.set_shader(shaders)
+    final_node_path.set_shader_input('blackbody', color)
+    material = Material()
+    material.set_emission(VBase4(color, 1.0))
+    final_node_path.set_material(material)
+    xn = PerlinNoise3(0.5, 0.5, 0.5)
+    #yn = PerlinNoise3(0.5, 0.5, 0.5)
+    texture = Texture('star')
+    texture.setup_3d_texture()
+    for z in range(texture_size):
+        p = PNMImage(texture_size, texture_size)
+        for y in range(texture_size):
+            for x in range(texture_size):
+                p.set_gray(x, y, abs(xn.noise(x, y, z)))
+        texture.load(p, z, 0)
+    diffuse = texture
+    diffuse.setMinfilter(Texture.FTLinearMipmapLinear)
+    diffuse.setAnisotropicDegree(4)
+    final_node_path.set_texture(diffuse)
+    normal = sandbox.base.loader.loadTexture('Data/Textures/EmptyNormalTexture.png')
+    normalts = TextureStage('normalts')
+    final_node_path.set_texture(normalts, normal)
+    specular = sandbox.base.loader.loadTexture('Data/Textures/EmptySpecularTexture.png')
+    spects = TextureStage('spects')
+    final_node_path.set_texture(spects, specular)
+    roughness = sandbox.base.loader.loadTexture('Data/Textures/EmptyRoughnessTexture.png')
+    roughts= TextureStage('roughts')
+    final_node_path.set_texture(roughts, roughness)
     return final_node_path
 
 
