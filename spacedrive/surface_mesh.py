@@ -5,10 +5,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import math
+import os
 
 from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexArrayFormat
 from panda3d.core import GeomVertexData, GeomVertexFormat, GeomVertexReader, GeomVertexWriter
-from panda3d.core import InternalName
+from panda3d.core import CardMaker, InternalName
 from panda3d.core import Material, NodePath, Point3, Texture, TextureStage
 from panda3d.core import VBase4, Vec3
 
@@ -42,19 +43,6 @@ def frange(start, stop, step):
     while r < stop:
         yield r
         r += step
-
-
-def getNorms(v1, v2, v3):
-    e1 = normalize(v1 - v2)
-    e2 = normalize(v3 - v2)
-    norm = normalize(e2.cross(e1))
-    return norm
-
-
-def getBinorms(edge, norm):
-    tan = normalize(norm.cross(edge))
-    binorm = normalize(tan.cross(norm))
-    return tan, binorm
 
 
 def vector_copy(v):
@@ -1161,7 +1149,20 @@ class Surface(Body):
 
 
 def make_star(name='star', scale=1, debug=False):
-    return make_planet(name, scale, debug)
+    card_maker = CardMaker(name)
+    node_path = NodePath(name)
+    node = card_maker.generate()
+    final_node_path = node_path.attach_new_node(node)
+    final_node_path.set_billboard_point_eye()
+    path = os.path.dirname(os.path.dirname(__file__))
+    path = os.path.join(path, 'spacedrive', 'Shader', 'Star')
+    shaders = BetterShader.load(os.path.join(path, 'vertex.glsl'),
+                                os.path.join(path, 'fragment.glsl'))
+    final_node_path.set_shader_input('cameraSpherePos', 1, 1, 1)
+    final_node_path.set_shader_input('sphereRadius', 1.0)
+    final_node_path.set_shader_input('myCamera', base.camera)
+    final_node_path.set_shader(shaders)
+    return final_node_path
 
 
 def make_planet(name='planet', scale=1, debug=False):

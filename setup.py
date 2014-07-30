@@ -5,12 +5,15 @@ setup(name='SpaceDrive',
       description='Panda3D Space Game Engine. Requires sandbox',
       author='croxis',
       author_email='croxis@gmail.com',
-      url='http://www.python.org/sigs/distutils-sig/',
+      url='http://croxis.net/',
       package_data={
-          'spacedrive': ['renderpipeline/Data/Antialiasing/*.png',
+          ''
+          'spacedrive': ['Shader/Star/*.glsl',
+                         'renderpipeline/Data/Antialiasing/*.png',
                          'renderpipeline/Data/Cubemaps/Default/*.png',
                          'renderpipeline/Data/Cubemaps/DirectionLookup/*.png',
-                         'renderpipeline/Data/GUI/*.png',]
+                         'renderpipeline/Data/GUI/*.png',
+                         'renderpipeline/Shader/DefaultShadowCaster/*.glsl',]
       },
       packages=find_packages(),
       include_package_data=True,

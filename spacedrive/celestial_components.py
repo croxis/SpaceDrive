@@ -32,6 +32,7 @@ class CelestialComponent(object):
 
 
 class StarComponent(object):
-    def __init__(self, absolute_magnitude=1, spectral_type=''):
+    def __init__(self, absolute_magnitude=1, spectral_type='', temperature=0):
         self.absolute_magnitude = absolute_magnitude
         self.spectral_type = spectral_type
+        self.temperature = temperature

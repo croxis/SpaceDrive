@@ -10,10 +10,11 @@ from math import sin, cos, radians, degrees, sqrt, atan2
 from panda3d.core import LPoint3d, Vec3
 import yaml
 
-from . import celestial_components as cel_comp
-from . import render_components as render_comps
-from . import surface_mesh
-from . import universals
+from .import celestial_components as cel_comp
+from .import render_components as render_comps
+from .import surface_mesh
+from .import universals
+from .utils import blackbody
 
 from .renderpipeline.classes.DirectionalLight import DirectionalLight
 from .renderpipeline.classes.PointLight import PointLight
@@ -103,7 +104,8 @@ def generate_node(name, database, parent_component):
     components = [celestial_component]
     if database['type'] == 'star':
         star_component = cel_comp.StarComponent(
-            database['absolute magnitude'], database['spectral'])
+            database['absolute magnitude'], database['spectral'],
+            temperature=database['temperature'])
         components.append(star_component)
     if 'orbit' in database:
         celestial_component.orbit = database['orbit']
@@ -142,6 +144,21 @@ def generate_node(name, database, parent_component):
 
         #sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
+            render_component.mesh = surface_mesh.make_star(name=name, scale=1)
+            #Debug prototype purposes only
+            render_component.mesh.set_pos(2, 0, 0)
+            #/Debug
+            render_component.temperature = database['temperature']
+            color = blackbody.convert_K_to_RGB_float(database['temperature'])
+            render_component.mesh.set_shader_input('blackbody', color)
+            render_component.light = DirectionalLight()
+            render_component.light.setColor(color)
+            render_component.light.setDirection(render_component.mesh.get_pos())
+            render_component.light.setShadowMapResolution(1024)
+            render_component.light.setCastsShadows(True)
+            sandbox.base.render_pipeline.addLight(render_component.light)
+
+
             # light = DirectionalLight()
             '''render_component.light = render_component.mesh.node_path.attach_new_node(
                 light
@@ -152,8 +169,7 @@ def generate_node(name, database, parent_component):
             # Direction is where light is coming from.
             render_component.light.setDirection(Vec3(1, 1, 1))
             sandbox.base.render_pipeline.addLight(render_component.light)'''
-            #Debug prototype purposes only
-            render_component.mesh.set_pos(10, 0, 0)
+
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['textures'])
             #render_component.mesh.set_ambient(1, 1, 1, 1)

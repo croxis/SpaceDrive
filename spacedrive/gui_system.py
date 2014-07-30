@@ -229,6 +229,13 @@ class GUISystem(sandbox.EntitySystem):
 
             image = PNMImage()
             self.handler.texture.store(image)
+            try:
+                image.get_alpha(x, y)
+            except:
+                log.warning("Error in getting gui at coordinates: " + str((x, y)))
+                log.warning("Image size: " + str((image.get_x_size(), image.get_y_size())))
+                image.clear()
+                return
             if image.get_alpha(x, y):
                 self.browser.SendMouseClickEvent(x, y,
                                                  cefpython.MOUSEBUTTON_LEFT,

@@ -103,8 +103,7 @@ def init_graphics(debug_mouse=False):
     log.warning("TODO: Finish Implement")
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
-    print("Rootdir:", os.path.dirname(__file__) + '/renderpipeline')
-    sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline')
+    sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline/')
     sandbox.base.render_pipeline.create()
     #sandbox.base.camLens.set_far(20000000)
     if not debug_mouse:

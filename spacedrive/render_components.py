@@ -8,3 +8,4 @@ class CelestialRenderComponent(object):
     noise = PerlinNoise2(64, 64)
     noise_texture = None
     mesh = None
+    temperature = 0
