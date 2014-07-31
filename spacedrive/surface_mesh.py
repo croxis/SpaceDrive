@@ -1067,6 +1067,15 @@ class Surface(Body):
         self.load_shaders()
 
     def load_shaders(self):
+        from panda3d.core import VirtualFileSystem
+        vfs = VirtualFileSystem.get_global_ptr()
+        print("Regula file?", vfs.isRegularFile('Shader/Planet/surface_vertex.glsl'))
+        vfs.ls('Shader')
+        print("next")
+        vfs.ls('Shader/Planet')
+        from direct.stdpy.file import *
+        with open('Shader/Planet/surface_vertex.glsl') as f:
+            print("Reading file", f.read())
         shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
                                     'Shader/Planet/surface_fragment.glsl')
         '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
