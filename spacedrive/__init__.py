@@ -104,6 +104,13 @@ def init_graphics(debug_mouse=False):
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
     sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline/')
+    #TODO: Make platform options
+    cache_dir = sandbox.appdirs.user_cache_dir('spacedrive', 'croxis')
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    if not os.path.exists(os.path.join(cache_dir, 'Shaders')):
+        os.makedirs(os.path.join(cache_dir, 'Shaders'))
+    sandbox.base.render_pipeline.setWriteDirectory(os.path.join(cache_dir, 'Shaders'))
     sandbox.base.render_pipeline.create()
     #sandbox.base.camLens.set_far(20000000)
     if not debug_mouse:

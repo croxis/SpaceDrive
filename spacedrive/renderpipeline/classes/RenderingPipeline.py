@@ -129,7 +129,7 @@ class RenderingPipeline(DebugObject):
                   'Shader', VirtualFileSystem.MFReadOnly)
 
         self.debug("Write directory:", self.writeDirectory)
-        if isinstance(self.writeDirectory, str):
+        if isinstance(self.writeDirectory, str) or isinstance(self.writeDirectory, unicode):
             try:
                 os.mkdir(join(self.writeDirectory, 'Cache'))
                 os.mkdir(join(self.writeDirectory, 'Includes'))
