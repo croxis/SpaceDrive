@@ -448,6 +448,9 @@ class RenderTarget(DebugObject):
         """ Deletes this buffer, restoring the previous state """
         self.warn("Todo:: Implement delete Buffer")
 
+        Globals.base.graphicsEngine.removeWindow(self._buffer.getInternalBuffer())
+        del self._buffer
+
     def __repr__(self):
         """ Returns a representative string of this instance """
         return "RenderTarget('" + self._name + "')"
