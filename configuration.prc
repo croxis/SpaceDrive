@@ -3,7 +3,9 @@
 assert-abort #f
 
 # File system should be case sensitive
-vfs-case-sensitive #t
+# NOTICE: Set this to #f if you are using tempfile. Because it returns
+# wrong cased directory paths :(
+vfs-case-sensitive #f
 
 # Animations on the gpu
 # hardware-animated-vertices #t
@@ -114,11 +116,11 @@ textures-power-2 none
 
 # Better GL performance
 gl-finish #f
-gl-force-no-error #f
+gl-force-no-error #t
 gl-check-errors #f
 gl-force-no-flush #t
 gl-force-no-scissor #t
-gl-debug #t
+gl-debug #f
 
 # gl-enable-memory-barriers #f
 
@@ -142,7 +144,7 @@ support-threads #t
 
 gl-immutable-texture-storage #f
 
-# notify-level-glgsg debug
+# notify-level-gobj debug
 
 gl-dump-compiled-shaders #f
 
