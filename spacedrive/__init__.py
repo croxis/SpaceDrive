@@ -16,14 +16,14 @@ from panda3d.core import VirtualFileSystem
 
 from .renderpipeline import RenderingPipeline
 
-from .import celestial_components
-from .import physics_components
+from . import celestial_components
+from . import physics_components
 
-from .import gui_system
-from .import orbit_system
-from .import physics_system
+from . import gui_system
+from . import orbit_system
+from . import physics_system
 
-from .import universals
+from . import universals
 
 if sys.version > '3':
     long = int
@@ -101,17 +101,21 @@ def init_graphics(debug_mouse=False):
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
     log.warning("TODO: Finish Implement")
-    vfs.mount(os.path.join(os.path.dirname(__file__), 'Shader/'), 'Shader', VirtualFileSystem.MF_read_only)
+    vfs.mount(os.path.join(os.path.dirname(__file__), 'Shader/'), 'Shader',
+              VirtualFileSystem.MF_read_only)
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
-    #sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline/')
+    # sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline/')
     #TODO: Make platform options
     cache_dir = sandbox.appdirs.user_cache_dir('spacedrive', 'croxis')
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
     if not os.path.exists(os.path.join(cache_dir, 'Shaders')):
         os.makedirs(os.path.join(cache_dir, 'Shaders'))
-    sandbox.base.render_pipeline.setWriteDirectory(os.path.join(cache_dir, 'Shaders'))
+    sandbox.base.render_pipeline.getMountManager().setBasePath(
+        os.path.join(os.path.dirname(__file__), 'renderpipeline'))
+    sandbox.base.render_pipeline.getMountManager().setWritePath(
+        os.path.join(cache_dir, 'Shaders'))
     sandbox.base.render_pipeline.create()
     #sandbox.base.camLens.set_far(20000000)
     if not debug_mouse:
