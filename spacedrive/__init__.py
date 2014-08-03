@@ -16,14 +16,15 @@ from panda3d.core import VirtualFileSystem
 
 from .renderpipeline import RenderingPipeline
 
-from . import celestial_components
-from . import physics_components
+from .import celestial_components
+from .import physics_components
 
-from . import gui_system
-from . import orbit_system
-from . import physics_system
+from .graphic_system import GraphicsSystem
+from .import gui_system
+from .import orbit_system
+from .import physics_system
 
-from . import universals
+from .import universals
 
 if sys.version > '3':
     long = int
@@ -97,7 +98,7 @@ def init_system(system, component=None):
     sandbox.add_system(system)
 
 
-def init_graphics(debug_mouse=False):
+def init_graphics(system=GraphicsSystem, component=celestial_components.CelestialComponent, debug_mouse=False):
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
     log.warning("TODO: Finish Implement")
@@ -117,6 +118,7 @@ def init_graphics(debug_mouse=False):
     sandbox.base.render_pipeline.getMountManager().setWritePath(
         os.path.join(cache_dir, 'Shaders'))
     sandbox.base.render_pipeline.create()
+    init_system(system, component)
     #sandbox.base.camLens.set_far(20000000)
     if not debug_mouse:
         sandbox.base.disableMouse()
