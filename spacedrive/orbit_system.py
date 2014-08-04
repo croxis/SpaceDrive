@@ -148,7 +148,7 @@ def generate_node(name, database, parent_component):
                     "atmosphereScale": Vec3(0.001)
                 })'''
                 render_component.atmosphere.setSettings({
-                    "atmosphereScale": Vec3(6360.0)
+                    "atmosphereScale": Vec3(1/6360.0)
                 })
                 render_component.atmosphere._setInputs(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 render_component.atmosphere.precompute()
