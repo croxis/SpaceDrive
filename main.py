@@ -28,14 +28,15 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.core import loadPrcFile, Vec3
 from panda3d.core import Texture
 
-from classes.MovementController import MovementController
-from classes.RenderingPipeline import RenderingPipeline
-from classes.PointLight import PointLight
-from classes.DirectionalLight import DirectionalLight
-from classes.BetterShader import BetterShader
-from classes.DebugObject import DebugObject
-from classes.FirstPersonController import FirstPersonCamera
-from classes.Scattering import Scattering
+from Code.MovementController import MovementController
+from Code.RenderingPipeline import RenderingPipeline
+from Code.PointLight import PointLight
+from Code.DirectionalLight import DirectionalLight
+from Code.BetterShader import BetterShader
+from Code.DebugObject import DebugObject
+from Code.FirstPersonController import FirstPersonCamera
+from Code.Scattering import Scattering
+
 
 class Main(ShowBase, DebugObject):
 
@@ -48,38 +49,36 @@ class Main(ShowBase, DebugObject):
 
         # Load engine configuration
         self.debug("Loading panda3d configuration from configuration.prc ..")
-        loadPrcFile("configuration.prc")
+        loadPrcFile("Config/configuration.prc")
 
         # Init the showbase
         ShowBase.__init__(self)
 
-
         ####### RENDER PIPELINE SETUP #######
-
         # Create the render pipeline, that's really everything!
         self.debug("Creating pipeline")
         self.renderPipeline = RenderingPipeline(self)
-        self.renderPipeline.loadSettings("pipeline.ini")
-
+        self.renderPipeline.loadSettings("Config/pipeline.ini")
 
         # Uncomment to use temp directory
         # writeDirectory = tempfile.mkdtemp(prefix='Shader-tmp')
         # writeDirectory = "Temp/"
-
         # Clear write directory when app exits
         # atexit.register(os.remove, writeDirectory)
-
         # Set a write directory, where the shader cache and so on is stored
         # self.renderPipeline.getMountManager().setWritePath(writeDirectory)
+
+
+
+
         self.renderPipeline.getMountManager().setBasePath(".")
         self.renderPipeline.create()
 
          ####### END OF RENDER PIPELINE SETUP #######
 
-
         # Load some demo source
         # self.sceneSource = "Demoscene.ignore/sponza.egg.bam"
-        self.sceneSource = "Models/PSSMTest/Model.egg"
+        self.sceneSource = "Models/PSSMTest/Model.egg.bam"
         # self.sceneSource = "Models/Raventon/Model.egg"
         # self.sceneSource = "BlenderMaterialLibrary/MaterialLibrary.egg"
         self.usePlane = False
@@ -87,10 +86,8 @@ class Main(ShowBase, DebugObject):
         self.debug("Loading Scene '" + self.sceneSource + "'")
         self.scene = self.loader.loadModel(self.sceneSource)
 
-
         # self.scene.setScale(0.05)
         # self.scene.flattenStrong()
-
         # Load ground plane if configured
         if self.usePlane:
             self.groundPlane = self.loader.loadModel("Models/Plane/Model.egg")
@@ -109,9 +106,8 @@ class Main(ShowBase, DebugObject):
 
         self.scene.reparentTo(self.render)
 
-
         self.prepareSRGB(self.scene)
-        
+
         # self.render2d.setShader(BetterShader.load("Shader/GUI/vertex.glsl", "Shader/GUI/fragment.glsl"))
 
         # Create movement controller (Freecam)
@@ -167,7 +163,7 @@ class Main(ShowBase, DebugObject):
             angle = float(i) / 4.0 * math.pi * 2.0
 
             # pos = Vec3(math.sin(angle) * 10.0 + 5, math.cos(angle) * 20.0, 30)
-            pos = Vec3( (i-1.5)*15.0, 9, 5.0)
+            pos = Vec3((i - 1.5) * 15.0, 9, 5.0)
             # pos = Vec3(8)
             # print "POS:",pos
             light = PointLight()
@@ -213,7 +209,7 @@ class Main(ShowBase, DebugObject):
             ambient = PointLight()
             ambient.setRadius(120.0)
 
-            initialPos = Vec3(float(x-2) * 21.0, 0, 60)
+            initialPos = Vec3(float(x - 2) * 21.0, 0, 60)
             ambient.setPos(initialPos)
             ambient.setColor(Vec3(1.0))
             ambient.setShadowMapResolution(1024)
@@ -228,22 +224,32 @@ class Main(ShowBase, DebugObject):
             # break
 
         dirLight = DirectionalLight()
-        dirLight.setDirection(Vec3(50,100,150))
+        dirLight.setDirection(Vec3(50, 100, 50))
         # dirLight.setPos(Vec3(50, 100, 150))
         dirLight.setColor(Vec3(5))
         self.renderPipeline.addLight(dirLight)
 
 
-
         d = Scattering()
+        d.setSettings({
+                "atmosphereOffset": Vec3(0,0, 6360.0 + 9.5),
+                "atmosphereScale": Vec3(0.01)
+            })
+        d._setInputs(self.renderPipeline.lightingComputeContainer, "scatteringOptions")
         d.precompute()
-
+        
+        # hack in for testing
+        self.renderPipeline.lightingComputeContainer.setShaderInput(
+            "transmittanceSampler", d.getTransmittanceResult())
+        self.renderPipeline.lightingComputeContainer.setShaderInput(
+            "inscatterSampler", d.getInscatterTexture())
 
         self.skybox = None
         self.loadSkybox()
 
         # set default object shaders
         self.setShaders()
+       
 
     def toggleSceneWireframe(self):
         self.sceneWireframe = not self.sceneWireframe
@@ -263,7 +269,7 @@ class Main(ShowBase, DebugObject):
             elif baseFormat == Texture.FRgba:
                 tex.setFormat(Texture.FSrgbAlpha)
             else:
-                print "Unkown texture format:",baseFormat
+                print "Unkown texture format:", baseFormat
                 print "\tTexture:", tex
 
             tex.setMinfilter(Texture.FTLinearMipmapNearest)
@@ -297,8 +303,8 @@ class Main(ShowBase, DebugObject):
 
     def loadSkybox(self):
         """ Loads the sample skybox. Will get replaced later """
-        self.skybox = self.loader.loadModel("Models/Skybox/Model")
-        self.skybox.setScale(15000)
+        self.skybox = self.loader.loadModel("Models/Skybox/Model.egg.bam")
+        self.skybox.setScale(40000)
         self.skybox.reparentTo(self.render)
 
     def setShaders(self):
@@ -349,10 +355,5 @@ class Main(ShowBase, DebugObject):
             return task.cont
 
 
-
-
-
-
 app = Main()
 app.run()
-
