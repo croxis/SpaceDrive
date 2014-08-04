@@ -5,6 +5,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import struct
 import sys
 
 import sandbox
@@ -51,6 +52,7 @@ def init(
     if log_level == 'warning':
         log.setSeverity(4)
     log.info("Init SpaceDrive")
+    log.debug("Bitness = " + str(8 * struct.calcsize("P")))
     universals.run_server = run_server
     universals.run_client = run_client
     if log_filename:
@@ -118,7 +120,7 @@ def init_graphics(system=GraphicsSystem, component=celestial_components.Celestia
     sandbox.base.render_pipeline.getMountManager().setWritePath(
         os.path.join(cache_dir, 'Shaders'))
     sandbox.base.render_pipeline.create()
-    init_system(system, component)
+    #init_system(system, component)
     #sandbox.base.camLens.set_far(20000000)
     if not debug_mouse:
         sandbox.base.disableMouse()

@@ -16,8 +16,8 @@ from .import surface_mesh
 from .import universals
 from .utils import blackbody
 
-from .renderpipeline.classes.DirectionalLight import DirectionalLight
-from .renderpipeline.classes.Scatttering import Scattering
+from .renderpipeline import DirectionalLight
+from .renderpipeline import Scattering
 
 from direct.directnotify.DirectNotify import DirectNotify
 
@@ -140,12 +140,22 @@ def generate_node(name, database, parent_component):
                                                          scale=celestial_component.radius)'''
             if 'atmosphere' in database:
                 render_component.atmosphere = Scattering()
-                render_component.atmosphere.setSettings({
+                '''render_component.atmosphere.setSettings({
                     'radiusGround': 0.001,
                     'radiusAtmosphere': 0.0011,
-                    'radiusAtmosphere1': 0.00111
+                    'radiusAtmosphere1': 0.00111,
+                    "atmosphereOffset": Vec3(0, 0, 6360.0 + 9.5),
+                    "atmosphereScale": Vec3(0.001)
+                })'''
+                render_component.atmosphere.setSettings({
+                    "atmosphereScale": Vec3(6360.0)
                 })
+                render_component.atmosphere._setInputs(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 render_component.atmosphere.precompute()
+                sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
+                    "transmittanceSampler", render_component.atmosphere.getTransmittanceResult())
+                sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
+                    "inscatterSampler", render_component.atmosphere.getInscatterTexture())
 
 
         #sandbox.send('make pickable', [render_component.mesh])
@@ -153,10 +163,11 @@ def generate_node(name, database, parent_component):
             color = blackbody.convert_K_to_RGB_float(database['temperature'])
             render_component.mesh = surface_mesh.make_star(name=name, color=color)
             #Debug prototype purposes only
-            render_component.mesh.set_pos(3, 0, 0)
+            render_component.mesh.set_pos(2, 0, 2)
             #/Debug
             render_component.temperature = database['temperature']
             render_component.light = DirectionalLight()
+            render_component.light.setAmbient(Vec3(0))
             render_component.light.setColor(color)
             render_component.light.setDirection(render_component.mesh.get_pos())
             #render_component.light.setShadowMapResolution(1024)
