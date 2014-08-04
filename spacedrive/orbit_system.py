@@ -39,15 +39,6 @@ class OrbitSystem(sandbox.EntitySystem):
                 displacement += self.add_parent_pos(displacement, parent_component)
                 displacement += parent_component.true_pos
         return displacement
-        '''for component in sandbox.get_components(cel_comp.CelestialComponent):
-            if component.node_path == childComponent.node_path.getParent():
-                if component.node_path in self.solarsystemroots.values():
-                    pass
-                else:
-                    displacement += self.add_parent_pos(displacement,
-                                                        component)
-                    displacement += component.truePos
-        return displacement'''
 
     def process(self, entity):
         """Gets the xyz position of the body, relative to its parent, on the
@@ -130,6 +121,12 @@ def generate_node(name, database, parent_component):
     else:
         celestial_component.node_path.reparent_to(parent_component.node_path)
     celestial_component.node_path.set_python_tag('entity', body_entity)
+
+
+    #FIXME: Does not factor parent positions for nested objects.
+    if celestial_component.orbit:
+        true_pos = calc_body_pos(celestial_component, universals.day)
+        celestial_component.true_pos = true_pos
 
     if universals.run_client:
         render_component = render_comps.CelestialRenderComponent()

@@ -29,6 +29,7 @@ class CelestialComponent(object):
         self.orbit = orbit
         self.radius = 1
         self.rotation = 0
+        self.name = name
 
 
 class StarComponent(object):
