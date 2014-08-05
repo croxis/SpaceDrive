@@ -167,7 +167,7 @@ def generate_node(name, database, parent_component):
             #/Debug
             render_component.temperature = database['temperature']
             render_component.light = DirectionalLight()
-            render_component.light.setAmbient(Vec3(0))
+            render_component.light.setAmbientColor(Vec3(0))
             render_component.light.setColor(color)
             render_component.light.setDirection(render_component.mesh.get_pos())
             #render_component.light.setShadowMapResolution(1024)
