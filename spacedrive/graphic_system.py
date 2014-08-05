@@ -43,10 +43,8 @@ class GraphicsSystem(sandbox.EntitySystem):
             if render_component.atmosphere:
                 offset = Vec3(new_pos.get_x()/1000, new_pos.get_y()/1000, new_pos.get_z()/1000)
                 print("Atmosphere", offset, scale_factor * celestial_component.radius)
-                render_component.atmosphere.setSettings({
-                    "atmosphereOffset": offset,
-                    "atmosphereScale": Vec3(scale_factor * celestial_component.radius)
-                })
+                render_component.atmosphere.adjustSetting("atmosphereOffset", offset)
+                render_component.atmosphere.adjustSetting("atmosphereScale", Vec3(scale_factor * celestial_component.radius))
 
         """if entity.has_component(solarSystem.PlanetRender):
             difference = self.getPos() - Globals.position
