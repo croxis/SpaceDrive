@@ -144,8 +144,8 @@ def generate_node(name, database, parent_component):
                     "atmosphereOffset": Vec3(0, 0, 6360.0 + 9.5),
                     "atmosphereScale": Vec3(0.001)
                 })'''
-                render_component.atmosphere.bindTo(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 render_component.atmosphere.precompute()
+                render_component.atmosphere.bindTo(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
                     "transmittanceSampler", render_component.atmosphere.getTransmittanceResult())
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
