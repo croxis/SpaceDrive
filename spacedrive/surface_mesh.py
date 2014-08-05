@@ -1011,8 +1011,14 @@ class Body(object):
         self.sides[5].set_hpr(180, 90, 0)
         self.init()
 
+    def get_name(self):
+        return self.name
+
     def init(self):
         raise NotImplementedError()
+
+    def get_pos(self):
+        return self.node_path.get_pos()
 
     def set_pos(self, *args):
         self.node_path.set_pos(args)

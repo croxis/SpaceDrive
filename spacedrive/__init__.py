@@ -40,7 +40,7 @@ def init(
         run_client=False,
         local_only=False,
         log_filename=None,
-        log_level=None,
+        log_level='info',
         window_title='SpaceDrive'
 ):
     """Call first. This will set up the initial engine state"""
@@ -120,8 +120,9 @@ def init_graphics(system=GraphicsSystem, component=celestial_components.Celestia
     sandbox.base.render_pipeline.getMountManager().setWritePath(
         os.path.join(cache_dir, 'Shaders'))
     sandbox.base.render_pipeline.create()
-    #init_system(system, component)
+    init_system(system, component)
     #sandbox.base.camLens.set_far(20000000)
+    #sandbox.base.camLens.set_far(500000.0)
     if not debug_mouse:
         sandbox.base.disableMouse()
 

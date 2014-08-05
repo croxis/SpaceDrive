@@ -1,9 +1,9 @@
 from __future__ import absolute_import
-from __future__ import division
+from __future__ import division#Must wait
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from panda3d.core import Point3D
+from panda3d.core import Point3D, Vec3
 
 import sandbox
 
@@ -19,7 +19,8 @@ class GraphicsSystem(sandbox.EntitySystem):
     current_pos = Point3D(0)
 
     def begin(self):
-        pass
+        self.far_clip_plane = sandbox.base.camLens.get_far()
+        self.scale_start_distance = self.far_clip_plane/2.0
         #entity = sandbox.entities[self.camera_entity]
         #entity.get_component()
         #self.current_pos = component.get_true_pos()
@@ -29,16 +30,24 @@ class GraphicsSystem(sandbox.EntitySystem):
             render_component = entity.get_component(CelestialRenderComponent)
             celestial_component = entity.get_component(CelestialComponent)
             difference = celestial_component.true_pos - self.current_pos
-            if difference.length() < 10000:
+            new_pos = Point3D(difference)
+            scale_factor = 1
+            if difference.length() < self.scale_start_distance:
                 render_component.mesh.set_pos(difference.get_x(), difference.get_y(), difference.get_z())
                 render_component.mesh.set_scale(celestial_component.radius)
             else:
-                far_clip_plane = sandbox.base.camLens.get_far()
-                scale_start_distance = far_clip_plane/2.0
-                scale = 1*(0.99)**((difference.length() - scale_start_distance))
-                new_pos = difference * scale
+                scale_factor = 1*(0.999999)**((difference.length() - self.scale_start_distance))
+                new_pos *= scale_factor
                 render_component.mesh.set_pos(new_pos.get_x(), new_pos.get_y(), new_pos.get_z())
-                render_component.mesh.set_scale(scale)
+                render_component.mesh.set_scale(scale_factor * celestial_component.radius)
+            if render_component.atmosphere:
+                offset = Vec3(new_pos.get_x()/1000, new_pos.get_y()/1000, new_pos.get_z()/1000)
+                print("Atmosphere", offset, scale_factor * celestial_component.radius)
+                render_component.atmosphere.setSettings({
+                    "atmosphereOffset": offset,
+                    "atmosphereScale": Vec3(scale_factor * celestial_component.radius)
+                })
+
         """if entity.has_component(solarSystem.PlanetRender):
             difference = self.getPos() - Globals.position
         if difference.length() < 10000:

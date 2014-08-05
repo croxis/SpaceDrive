@@ -29,7 +29,6 @@ is2d = False
 
 class OrbitSystem(sandbox.EntitySystem):
     """Positions and moves celestial bodies in orbit."""
-
     def add_parent_pos(self, displacement, child_component):
         parent_node_path = child_component.node_path.get_parent()
         parent_entity = parent_node_path.get_python_tag('entity')
@@ -58,10 +57,9 @@ class OrbitSystem(sandbox.EntitySystem):
             # Iterate through parents and add their positions
             #TODO: Do we really need to do this? If not this should be moved
             #to the end step function to prevent celestial motion jitters
-            #as we have no guruntee of order
+            #as we have no guarantee of order
             component.true_pos += self.add_parent_pos(LPoint3d(0, 0, 0),
                                                       component)
-            #print component.nodePath, component.truePos
 
 
 def create_from_yaml_file(self, filename):
