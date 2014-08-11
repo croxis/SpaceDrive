@@ -17,6 +17,8 @@
 #include "Includes/Material.include"
 #include "Includes/ShadowSource.include"
 #include "Includes/ColorCorrection.include"
+#include "Includes/PositionReconstruction.include"
+#include "Includes/SphericalHarmonics.include"
 #include "Scattering/ScatteringOptions.include"
 
 uniform sampler2D data0;
@@ -35,9 +37,25 @@ uniform Light lights[MAX_VISIBLE_LIGHTS];
 uniform ShadowSource shadowSources[SHADOW_MAX_TOTAL_MAPS]; 
 in vec2 texcoord;
 
-uniform int temporalProjXOffs;
-uniform sampler2D dssdoNoiseTex;
 
+#ifdef USE_TEMPORAL_REPROJECTION
+    uniform int temporalProjXOffs;
+#endif
+
+
+
+#ifdef USE_GLOBAL_ILLUMINATION
+    uniform vec3 GI_gridStart;
+    uniform vec3 GI_gridEnd;
+    uniform int GI_cascadeSize;
+    uniform sampler2D GI_grid;
+    uniform sampler2D GI_gridColor;
+#endif
+
+
+uniform sampler2D noiseTexture;
+
+uniform vec3 cameraPosition;
 
 // Has to be after the uniforms
 #include "Occlusion/Init.include"
@@ -64,6 +82,8 @@ void main() {
 
     // Compute texcoords
     ivec2 screenSize = textureSize(data0, 0);
+
+    #ifdef USE_TEMPORAL_REPROJECTION
     ivec2 screenCoord = ivec2(texcoord * vec2(screenSize.x + 1 , screenSize.y)); 
 
     // Shift x by 1 for temporal reprojection
@@ -72,8 +92,14 @@ void main() {
     // as you otherwise can see the line-pattern very obviously. Using
     // a checkerboard more gives a dithering effect, which is barely visible
     screenCoord.x += (screenCoord.x + screenCoord.y) % 2 == temporalProjXOffs ? -1 : 0;
-
     vec2 correctTexcoord = (vec2(screenCoord)+0.5) / vec2(screenSize);
+
+    #else
+
+    ivec2 screenCoord = ivec2(gl_FragCoord.xy);
+    vec2 correctTexcoord = texcoord;
+
+    #endif
 
     ivec2 precomputeCoord = ivec2( vec2(screenCoord) / 
         vec2(LIGHTING_COMPUTE_PATCH_SIZE_X, LIGHTING_COMPUTE_PATCH_SIZE_Y) ) * 8;
@@ -111,6 +137,8 @@ void main() {
 
     vec3 result = vec3(0);
     bool isSkybox = distance(material.position, cameraPosition) > SKYBOX_BEGIN;
+
+    vec3 shAmbient = computeSphericalHarmonics(material.normal, harmonicsGroove);
 
 
     // Compute Occlusion
@@ -164,43 +192,107 @@ void main() {
         currentLightId = imageLoad(lightsPerTile, baseOffset + currentOffset).r;
         currentLight = lights[currentLightId];
         result += applyDirectionalLight(currentLight, material OCCLUSION_PER_LIGHT_SEND_PARAMETERS );
-        
     }
 
+
+    // Compute shadowed directinal lights
+    baseOffset = precomputeCoord + ivec2(0,6);
+    for (int i = 0; i < countDirectionalLightShadow; i++) {
+        currentOffset = ivec2(i % 8, i / 8);
+        currentLightId = imageLoad(lightsPerTile, baseOffset + currentOffset).r;
+        currentLight = lights[currentLightId];
+        result += applyDirectionalLightWithShadow(currentLight, material, shAmbient OCCLUSION_PER_LIGHT_SEND_PARAMETERS );
+    }
+
+    // Reconstruct position - otherwise we have precision errors
+    vec3 viewDir = calculateSurfacePos(1.0, texcoord);
+    vec3 posFromDepth = calculateSurfacePos(texelFetch(depth, screenCoord, 0).x, texcoord);
 
     float inscatterFactor = 5.0;
 
     // Occlusion on skybox leads to artifacts
     if (isSkybox) {
         occlusionTotal = 0.0;
-        material.position *= 10000.0;
+
+        // Push very far away
+        posFromDepth *= 1e20;
         inscatterFactor = 1.0;
     }
 
 
-    
-    // SRGB
-    result.xyz = sqrt(result.xyz);
 
     vec3 attenuation;
     float irradianceFactor;
 
-    // Reconstruct position - otherwise we have precision errors
-    vec3 viewDir = calculateSurfacePos(1.0, texcoord);
-    
+
+
+
     vec3 scatteringResult = scatteringComputeInscatteredLight(
         scatteringOptions,
-        material.position, 
+        posFromDepth, 
         cameraPosition,
         viewDir, 
         inscatterSampler,
-        // transmittanceSampler,
         attenuation, 
         irradianceFactor);
 
     #ifndef DEBUG_DISABLE_SCATTERING
         result += scatteringResult * inscatterFactor;
     #endif
+
+
+
+
+
+
+    // SRGB
+    result.xyz = sqrt(result.xyz);
+
+
+    #ifdef USE_GLOBAL_ILLUMINATION
+        #ifndef DEBUG_DISABLE_GI
+        int giCascadeSize = GI_cascadeSize;
+        bool isInGrid = all(greaterThan(material.position, GI_gridStart)) && 
+                        all(lessThan(material.position, GI_gridEnd));
+        if (isInGrid) {
+            vec3 biasedPosition = material.position + material.normal * 0.0;
+            vec3 localCoord = (biasedPosition-GI_gridStart) / (GI_gridEnd-GI_gridStart);
+            vec2 giCoord = localCoord.xy * vec2(1.0 / giCascadeSize, 1.0);
+            giCoord.x += int(localCoord.z * giCascadeSize ) / float(giCascadeSize);
+            giCoord.xy = clamp(giCoord.xy, vec2(1.0 / (giCascadeSize*giCascadeSize) ), vec2(1 - 1.0/giCascadeSize));
+            vec4 interp1 = texture(GI_gridColor, giCoord.xy, 0);
+            vec4 interp2 = texture(GI_gridColor, giCoord.xy + vec2(1.0 / giCascadeSize, 0), 0);
+            vec4 giColor = mix(interp1, interp2, 
+                mod(localCoord.z, 1.0/giCascadeSize) * float(giCascadeSize) );
+            // vec4 giColor = mix(interp1, interp2, 0.0);
+            // giColor = interp2;
+            vec3 giResult = max(vec3(0.0), vec3(giColor.xyz * 3.0)) + 0.2;
+
+            #ifdef DEBUG_RM_GI
+                // result = 1.0f - exp(-1.5 * giResult);
+                result = giResult;
+                occlusionTotal = 0.0;
+            #else
+                result *= giResult;
+            #endif
+
+            // result = vec3( giColor.x, giColor.x, giColor.y ) + 0.0; 
+            // result = vec3(mod(localCoord.z, 1.0/giCascadeSize) * float(giCascadeSize));
+            // result = vec3(giCoord.x,0, 0);
+            // result = vec3(gridCoordInt.z > 16? 1.0 : 0.0);
+        } else {
+
+            #ifdef DEBUG_RM_GI
+                result = vec3(0);
+                occlusionTotal = 0.0;
+            #endif
+            // result = vec3(1,0,0);
+        }
+
+        #endif
+
+    #endif
+
 
     // result = HDR(result, 1.0);
 
@@ -218,6 +310,7 @@ void main() {
 
     #ifdef DEBUG_RM_OCCLUSION
         result = vec3(1);
+        occlusionTotal = occlusionResult;
         // occlusionTotal = 0.0;
         // result = vec3(occlusionResult);
     #endif
@@ -240,9 +333,12 @@ void main() {
 
     #ifdef DEBUG_RM_SCATTERING
         result = scatteringResult * inscatterFactor;
-    result = 1.0f - exp(-1.5 * result);
+        result = 1.0f - exp(-1.5 * result);
         occlusionTotal = 0.0;
     #endif
 
+
+    vec3 fogColor = vec3(1);
+    float fogFactor = (distance(material.position,cameraPosition)-20.0) / 1900.0;
     lightingResult = vec4(result, 1.0 - saturate(occlusionTotal) );
 }

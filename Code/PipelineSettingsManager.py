@@ -45,8 +45,12 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("motionBlurSamples", int, 8)
         self._addSetting("motionBlurFactor", float, 1.0)
 
+        # [Global Illumination]
+        self._addSetting("enableGlobalIllumination", bool, False)
+
         # [Debugging]
         self._addSetting("displayOnscreenDebugger", bool, False)
         self._addSetting("displayDebugStats", bool, True)
         self._addSetting("dumpGeneratedShaders", bool, False)
 
+        self._addSetting("enableTemporalReprojection", bool, True)

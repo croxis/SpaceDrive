@@ -74,9 +74,10 @@ class Main(ShowBase, DebugObject):
          ####### END OF RENDER PIPELINE SETUP #######
 
         # Load some demo source
-        # self.sceneSource = "Demoscene.ignore/sponza.egg.bam"
+        self.sceneSource = "Demoscene.ignore/sponza.egg.bam"
+        # self.sceneSource = "Demoscene.ignore/occlusionTest/Model.egg"
         # self.sceneSource = "Demoscene.ignore/lost-empire/Model.egg"
-        self.sceneSource = "Models/PSSMTest/Model.egg.bam"
+        # self.sceneSource = "Models/PSSMTest/Model.egg.bam"
         # self.sceneSource = "Models/Raventon/Model.egg"
         # self.sceneSource = "BlenderMaterialLibrary/MaterialLibrary.egg"
         self.usePlane = False
@@ -113,7 +114,8 @@ class Main(ShowBase, DebugObject):
         self.controller = MovementController(self)
         # self.controller.setInitialPosition(Vec3(-30, 30, 25), Vec3(0, 0, 0))
         self.controller.setInitialPosition(
-            Vec3(-38.8, -108.7, 38.9), Vec3(0, 0, 30))
+            # Vec3(-38.8, -108.7, 38.9), Vec3(0, 0, 30))
+            Vec3(23.6278, -52.0626, 9.021), Vec3(-30, 0, 0))
         self.controller.setup()
         # base.disableMouse()
         # base.camera.setPos(0.988176, 2.53928, 2.75053)
@@ -203,17 +205,17 @@ class Main(ShowBase, DebugObject):
         contrib = 1.0
 
         # for x, y in [(-1.1, -0.9), (-1.2, 0.8), (1.3, -0.7), (1.4, 0.6)]:
-        for x in xrange(4):
-            # break
+        for x in xrange(1):
+            break
         # for x,y in [(0,0)]:
             ambient = PointLight()
             ambient.setRadius(120.0)
 
-            initialPos = Vec3(float(x - 2) * 21.0, 0, 60)
+            initialPos = Vec3(float(x - 2) * 21.0, 0, 90)
             ambient.setPos(initialPos)
-            ambient.setColor(Vec3(6.0))
-            # ambient.setShadowMapResolution(1024)
-            # ambient.setCastsShadows(True)
+            ambient.setColor(Vec3(2.0))
+            ambient.setShadowMapResolution(256)
+            ambient.setCastsShadows(True)
             self.lights.append(ambient)
             self.initialLightPos.append(initialPos)
             # ambient.attachDebugNode(render)
@@ -223,21 +225,53 @@ class Main(ShowBase, DebugObject):
             # contrib *= 0.4
             # break
 
+
+        vplHelpLights = [
+            Vec3(-66.1345, -22.2243, 33.5399),
+            Vec3(63.6877, 29.0491, 33.3335)
+        ]
+
+        # vplHelpLights = [
+        #     Vec3(5,5,15),
+        #     Vec3(-5,-5,15)
+        # ]
+
+        dPos = Vec3(0, 0 ,200)
         dirLight = DirectionalLight()
-        dirLight.setDirection(Vec3(50, 100, 50))
-        # dirLight.setPos(Vec3(50, 100, 150))
-        dirLight.setColor(Vec3(18, 17.5, 15))
-        # self.renderPipeline.addLight(dirLight)
+        dirLight.setDirection(dPos)
+        dirLight.setShadowMapResolution(4096 + 1024)
+        dirLight.setCastsShadows(True)
+        dirLight.setPos(dPos)
+        dirLight.setColor(Vec3(18, 17.5, 15) * 0.5)
+        self.renderPipeline.addLight(dirLight)
+        self.initialLightPos.append(dPos)
+        self.lights.append(dirLight)
+
+        for pos in vplHelpLights:
+            helpLight = PointLight()
+            helpLight.setRadius(100)
+            helpLight.setPos(pos)
+            helpLight.setColor(Vec3(0))
+            helpLight.setShadowMapResolution(512)
+            helpLight.setCastsShadows(True)
+            self.renderPipeline.addLight(helpLight)
+            self.initialLightPos.append(pos)
+            self.lights.append(helpLight)
+
+
 
         d = Scattering()
+
+        scale = 100000
         d.setSettings({
-            "atmosphereOffset": Vec3(0, 0, 6360.0 + 9.5),
-            "atmosphereScale": Vec3(1000.0)
+            "atmosphereOffset": Vec3(0, 0, - (6360.0 + 9.5) * scale ),
+            # "atmosphereOffset": Vec3(0),
+            "atmosphereScale": Vec3(scale)
         })
 
         d.precompute()
 
-        # hack in for testing
+        # hack in scattering for testing
         self.renderPipeline.lightingComputeContainer.setShaderInput(
             "transmittanceSampler", d.getTransmittanceResult())
         self.renderPipeline.lightingComputeContainer.setShaderInput(
@@ -251,6 +285,11 @@ class Main(ShowBase, DebugObject):
 
         d.bindTo(
             self.renderPipeline.lightingComputeContainer, "scatteringOptions")
+
+        # yaxis = loader.loadModel("zup-axis.egg")
+        # yaxis.reparentTo(render)
+        
+
 
     def toggleSceneWireframe(self):
         self.sceneWireframe = not self.sceneWireframe
@@ -337,7 +376,7 @@ class Main(ShowBase, DebugObject):
 
         # Simulate 30 FPS
         # import time
-        # time.sleep( max(0.0, 0.033))
+        # time.sleep( 0.2)
         # time.sleep(-0.2)
         # return task.cont
 

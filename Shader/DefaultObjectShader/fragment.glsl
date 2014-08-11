@@ -44,12 +44,12 @@ void main() {
     float specularFactor = vOutput.materialSpecular.x;
     float metallic = vOutput.materialSpecular.y;
     float roughnessFactor = vOutput.materialSpecular.z;
-
+   
     vec3 detailNormal = sampledNormal.rgb * 2.0 - 1.0;
     detailNormal = mix(vec3(0,0,1), detailNormal, bumpFactor);
     detailNormal = normalize(detailNormal);
 
-    vec3 normal = vOutput.normalWorld;
+    vec3 normal = normalize(vOutput.normalWorld);
     vec3 tangent; vec3 binormal;
     reconstructTanBin(tangent, binormal);
 
@@ -63,6 +63,17 @@ void main() {
     m.metallic = metallic;
     m.normal = mixedNormal;
     m.position = vOutput.positionWorld;
+
+
+    // Visualize GI Grid
+    // float gridSize = 2.0;
+    // float lineSize = 0.2;
+
+    // if (mod(m.position.x, gridSize) < lineSize || mod(m.position.y, gridSize) < lineSize || mod(m.position.z, gridSize) < lineSize) {
+    //     m.baseColor = vec3(10,0,0);
+    //     m.roughness = vec3(1);
+    //     m.metallic = 0.0;
+    // }
     
     renderMaterial(m);
 }
