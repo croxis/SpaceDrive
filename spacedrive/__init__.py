@@ -106,11 +106,14 @@ def init_graphics(system=GraphicsSystem, component=celestial_components.Celestia
     log.warning("TODO: Finish Implement")
     vfs.mount(os.path.join(os.path.dirname(__file__), 'Shader/'), 'Shader',
               VirtualFileSystem.MF_read_only)
+    #sandbox.base.camLens.set_far(20000000)
+    #sandbox.base.camLens.set_far(2000000)
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')
     # sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline/')
     #TODO: Make platform options
     cache_dir = sandbox.appdirs.user_cache_dir('spacedrive', 'croxis')
+    log.debug("Cache Directory: " + cache_dir)
     if not os.path.exists(cache_dir):
         os.makedirs(cache_dir)
     if not os.path.exists(os.path.join(cache_dir, 'Shaders')):
@@ -121,8 +124,7 @@ def init_graphics(system=GraphicsSystem, component=celestial_components.Celestia
         os.path.join(cache_dir, 'Shaders'))
     sandbox.base.render_pipeline.create()
     init_system(system, component)
-    #sandbox.base.camLens.set_far(20000000)
-    #sandbox.base.camLens.set_far(500000.0)
+
     if not debug_mouse:
         sandbox.base.disableMouse()
 

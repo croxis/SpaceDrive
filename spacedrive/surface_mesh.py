@@ -16,7 +16,7 @@ from panda3d.core import VBase4, Vec3
 
 import sandbox
 
-from .renderpipeline.classes.BetterShader import BetterShader
+from .renderpipeline.Code.BetterShader import BetterShader
 
 
 #you cant normalize in-place so this is a helper function
@@ -947,7 +947,7 @@ class myUVMapper(object):
 
 
 #def create_mesh(parentnp, debug=False, invert=False, width=32):
-def create_mesh(debug=False, invert=False, width=32):
+def create_mesh(debug=False, invert=False, width=129):
     """This creates a simple 17x17 grid mesh for the sides of our cube.
     The ultimate goal is to use a LOD system, probably based on quadtrees.
     If debug is true then we get a color gradient on our vertexes.
@@ -1073,22 +1073,8 @@ class Surface(Body):
         self.load_shaders()
 
     def load_shaders(self):
-        #from panda3d.core import VirtualFileSystem
-        #vfs = VirtualFileSystem.get_global_ptr()
-        #print("Regula file?", vfs.isRegularFile('Shader/Planet/surface_vertex.glsl'))
-        #vfs.ls('Shader')
-        #print("next")
-        #vfs.ls('Shader/Planet')
-        #from direct.stdpy.file import open
-        #with open('Shader/Planet/surface_vertex.glsl') as f:
-        #    print("Reading file", f.read())
         shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
                                     'Shader/Planet/surface_fragment.glsl')
-        '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
-                                    'Shader/Planet/surface_fragment.glsl',
-                                    'Shader/Planet/surface_geometry.glsl')'''
-        #shaders = base.render_pipeline.getDefaultObjectShader(False)
-        #self.node_path.set_shader(shaders)
         for m in self.sides:
             m.set_shader(shaders)
 

@@ -6,7 +6,6 @@
 
 #extension GL_ARB_separate_shader_objects : enable
 
-
 // Input from the vertex shader
 layout(location=0) in VertexOutput vOutput;
 
@@ -62,7 +61,7 @@ void main() {
     m.specular = sampledSpecular.r * specularFactor;
     m.metallic = metallic;
     m.normal = mixedNormal;
+
     m.position = vOutput.positionWorld;
-    
     renderMaterial(m);
 }

@@ -1,6 +1,10 @@
 #version 410
+#pragma file "DefaultObjectShader/fragment.glsl"
 
 #include "Includes/VertexOutput.include"
+
+
+#extension GL_ARB_separate_shader_objects : enable
 
 // Input from the vertex shader
 layout(location=0) in VertexOutput vOutput;
@@ -10,8 +14,7 @@ uniform sampler2D p3d_Texture0;
 uniform sampler2D p3d_Texture1;
 uniform sampler2D p3d_Texture2;
 uniform sampler2D p3d_Texture3;
-uniform sampler2D p3d_Texture4;
-uniform sampler2D p3d_Texture5;
+
 
 // This is required for the materials
 #include "Includes/MaterialPacking.include"
@@ -19,6 +22,8 @@ uniform sampler2D p3d_Texture5;
 // Also this enables us to compute the tangent in
 // the fragment shader
 #include "Includes/TangentFromDDX.include"
+
+uniform float osg_FrameTime;
 
 void main() {
 
@@ -34,7 +39,8 @@ void main() {
     vec4 sampledSpecular = texture(SPECULAR_TEX, vOutput.texcoord);
     vec4 sampledRoughness = texture(ROUGHNESS_TEX, vOutput.texcoord);
 
-    float bumpFactor = vOutput.materialDiffuse.w;
+    //float bumpFactor = vOutput.materialDiffuse.w;
+    float bumpFactor = 0;
     float specularFactor = vOutput.materialSpecular.x;
     float metallic = vOutput.materialSpecular.y;
     float roughnessFactor = vOutput.materialSpecular.z;
@@ -44,7 +50,7 @@ void main() {
     detailNormal = normalize(detailNormal);
 
     //vec3 normal = decodedNormal;
-    vec3 normal = vOutput.normalWorld;
+    vec3 normal = normalize(vOutput.normalWorld);
     vec3 tangent; vec3 binormal;
     reconstructTanBin(tangent, binormal);
 

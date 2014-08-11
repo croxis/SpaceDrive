@@ -169,15 +169,16 @@ void main() {
 
 
     float inscatterFactor = 5.0;
+    vec3 posFromDepth = calculateSurfacePos(texelFetch(depth, screenCoord, 0).x, texcoord);
+
+    
 
     // Occlusion on skybox leads to artifacts
     if (isSkybox) {
         occlusionTotal = 0.0;
-        material.position *= 10000.0;
+        posFromDepth *= 1e20;
         inscatterFactor = 1.0;
     }
-
-
     
     // SRGB
     result.xyz = sqrt(result.xyz);
@@ -190,11 +191,10 @@ void main() {
     
     vec3 scatteringResult = scatteringComputeInscatteredLight(
         scatteringOptions,
-        material.position, 
+        posFromDepth, 
         cameraPosition,
         viewDir, 
         inscatterSampler,
-        // transmittanceSampler,
         attenuation, 
         irradianceFactor);
 

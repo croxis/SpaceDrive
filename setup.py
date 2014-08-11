@@ -9,6 +9,7 @@ setup(name='SpaceDrive',
       package_data={
           ''
           'spacedrive': ['Shader/Planet/*.glsl',
+                         'Shader/Scattering/*.include',
                          'Shader/Star/*.glsl',
                          'renderpipeline/Data/Antialiasing/*.png',
                          'renderpipeline/Data/Cubemaps/Default/*.png',

@@ -137,20 +137,16 @@ def generate_node(name, database, parent_component):
                                                          scale=celestial_component.radius)'''
             if 'atmosphere' in database:
                 render_component.atmosphere = Scattering()
-                '''render_component.atmosphere.setSettings({
-                    'radiusGround': 0.001,
-                    'radiusAtmosphere': 0.0011,
-                    'radiusAtmosphere1': 0.00111,
-                    "atmosphereOffset": Vec3(0, 0, 6360.0 + 9.5),
-                    "atmosphereScale": Vec3(0.001)
-                })'''
+                render_component.atmosphere.setSettings({
+                    'radiusGround': 6371.0,
+                    'radiusAtmosphere': 6431.0,
+                })
                 render_component.atmosphere.precompute()
                 render_component.atmosphere.bindTo(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
                     "transmittanceSampler", render_component.atmosphere.getTransmittanceResult())
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
                     "inscatterSampler", render_component.atmosphere.getInscatterTexture())
-
 
         #sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
