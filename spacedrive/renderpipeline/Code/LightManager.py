@@ -1,7 +1,7 @@
 
 from panda3d.core import Texture, Camera, Vec3, Vec2, NodePath, RenderState
 from panda3d.core import CullFaceAttrib, ColorWriteAttrib, DepthWriteAttrib
-from panda3d.core import OmniBoundingVolume, PTAInt
+from panda3d.core import OmniBoundingVolume, PTAInt, Vec4
 
 from Light import Light
 from DebugObject import DebugObject
@@ -59,6 +59,7 @@ class LightManager(DebugObject):
         self.shadowSources = []
         self.queuedShadowUpdates = []
         self.allLightsArray = ShaderStructArray(Light, self.maxTotalLights)
+        self.updateCallbacks = []
 
         self.cullBounds = None
         self.shadowScene = Globals.render
@@ -82,11 +83,12 @@ class LightManager(DebugObject):
 
         # Create the initial shadow state
         self.shadowComputeCamera.setTagStateKey("ShadowPassShader")
-        self.shadowComputeCamera.setInitialState(RenderState.make(
-            ColorWriteAttrib.make(ColorWriteAttrib.C_off),
-            DepthWriteAttrib.make(DepthWriteAttrib.M_on),
+        # self.shadowComputeCamera.setInitialState(RenderState.make(
+            # ColorWriteAttrib.make(ColorWriteAttrib.C_off),
+            # ColorWriteAttrib.make(ColorWriteAttrib.C_rgb),
+            # DepthWriteAttrib.make(DepthWriteAttrib.M_on),
             # CullFaceAttrib.make(CullFaceAttrib.MCullNone),
-            100))
+            # 100))
 
         self._createTagStates()
 
@@ -109,6 +111,8 @@ class LightManager(DebugObject):
 
         self.lightingComputator = None
         self.lightCuller = None
+        self.skip = 0
+        self.skipRate = 0
 
     def _createTagStates(self):
         # Create shadow caster shader
@@ -138,29 +142,34 @@ class LightManager(DebugObject):
 
         # Disable culling
         self.shadowComputeCamera.setBounds(OmniBoundingVolume())
-
         self.shadowComputeCameraNode.setPos(0, 0, 150)
         self.shadowComputeCameraNode.lookAt(0, 0, 0)
 
-        self.shadowComputeTarget = RenderTarget("ShadowCompute")
+        self.shadowComputeTarget = RenderTarget("ShadowAtlas")
         self.shadowComputeTarget.setSize(self.shadowAtlas.getSize())
         self.shadowComputeTarget.addDepthTexture()
+        self.shadowComputeTarget.addColorTexture()
+        self.shadowComputeTarget.addAuxTextures(1)
+        self.shadowComputeTarget.setAuxBits(16)
+        self.shadowComputeTarget.setColorBits(16)
         self.shadowComputeTarget.setDepthBits(32)
         self.shadowComputeTarget.setSource(
             self.shadowComputeCameraNode, Globals.base.win)
+
         self.shadowComputeTarget.prepareSceneRender()
 
-        # We have to adjust the sort
-        self.shadowComputeTarget.getInternalRegion().setSort(3)
-        self.shadowComputeTarget.getRegion().setSort(3)
+        # This took me a long time to figure out. If not removing the quad
+        # children, the color and aux buffers will be overridden each frame.
+        # Quite annoying!
+        self.shadowComputeTarget.getQuad().node().removeAllChildren()
+        self.shadowComputeTarget.getInternalRegion().setSort(200)
 
         self.shadowComputeTarget.getInternalRegion().setNumRegions(
             self.maxShadowUpdatesPerFrame + 1)
+        self.shadowComputeTarget.getInternalRegion().setDimensions(0,
+             (0, 0, 0, 0))
 
-        # The first viewport always has to be fullscreen
-        self.shadowComputeTarget.getInternalRegion().setDimensions(
-            0, (0, 1, 0, 1))
-        self.shadowComputeTarget.setClearDepth(False)
+        self.shadowComputeTarget.getInternalBuffer().setSort(100)
 
         # We can't clear the depth per viewport.
         # But we need to clear it in any way, as we still want
@@ -172,11 +181,15 @@ class LightManager(DebugObject):
         for i in range(self.maxShadowUpdatesPerFrame):
             buff = self.shadowComputeTarget.getInternalBuffer()
             dr = buff.makeDisplayRegion()
-            dr.setSort(2)
+            dr.setSort(150)
+            for k in xrange(16):
+                dr.setClearActive(k, True)
+                dr.setClearValue(k, Vec4(0.5,0.5,0.5,1))
+
             dr.setClearDepthActive(True)
             dr.setClearDepth(1.0)
-            dr.setClearColorActive(False)
-            dr.setDimensions(0, 0, 0, 0)
+            dr.setDimensions(0,0,0,0)
+            dr.setActive(False)
             self.depthClearer.append(dr)
 
         # When using hardware pcf, set the correct filter types
@@ -189,6 +202,10 @@ class LightManager(DebugObject):
         dTex.setWrapU(Texture.WMClamp)
         dTex.setWrapV(Texture.WMClamp)
 
+    def getAllLights(self):
+        """ Returns all attached lights """
+        return self.lights
+
     def _createDebugTexts(self):
         """ Creates a debug overlay if specified in the pipeline settings """
         self.lightsVisibleDebugText = None
@@ -196,8 +213,6 @@ class LightManager(DebugObject):
 
         if self.settings.displayDebugStats:
 
-            # FastText only is in my personal shared directory. It's not
-            # in the git-repository. So to prevent errors, this try is here.
             try:
                 from Code.GUI.FastText import FastText
                 self.lightsVisibleDebugText = FastText(pos=Vec2(
@@ -291,8 +306,18 @@ class LightManager(DebugObject):
         casts shadows or the shadowmap resolution before calling this! 
         Otherwise it won't work (and maybe crash? I didn't test, 
         just DON'T DO IT!) """
-        self.lights.append(light)
+        
+        if light.attached:
+            self.warn("Light is already attached!")
+            return
+
         light.attached = True
+        self.lights.append(light)
+
+        if light.hasShadows() and not self.settings.renderShadows:
+            self.warn("Attached shadow light but shadowing is disabled in pipeline.ini")
+            light.setCastsShadows(False)
+
 
         sources = light.getShadowSources()
 
@@ -401,7 +426,6 @@ class LightManager(DebugObject):
             renderedDL_S = "Directional:" + \
                 str(self.numRenderedLights["DirectionalLightShadow"][0])
 
-
             self.lightsVisibleDebugText.setText(
                 'Lights: ' + renderedPL + " / " + renderedDL + " Shadowed: " + renderedPL_S + " / " + renderedDL_S)
 
@@ -409,16 +433,29 @@ class LightManager(DebugObject):
         """ This is one of the two per-frame-tasks. See class description
         to see what it does """
 
+        # First, disable all clearers
+        for clearer in self.depthClearer:
+            clearer.setActive(False)
+
+        if self.skip > 0:
+            self.shadowComputeTarget.setActive(False)
+            self.numShadowUpdatesPTA[0] = 0
+            self.skip -= 1
+            return
+
+        self.skip = self.skipRate
+
         # Process shadows
         queuedUpdateLen = len(self.queuedShadowUpdates)
 
         # Compute shadow updates
         numUpdates = 0
         last = "[ "
-
-        # First, disable all clearers
-        for clearer in self.depthClearer:
-            clearer.setActive(False)
+   
+        # Callbacks from last frame
+        for callback in self.updateCallbacks:
+            callback.onUpdated()
+        self.updateCallbacks = []
 
         # When there are no updates, disable the buffer
         if len(self.queuedShadowUpdates) < 1:
@@ -490,16 +527,18 @@ class LightManager(DebugObject):
                 self.depthClearer[numUpdates].setActive(True)
 
                 self.shadowComputeTarget.getInternalRegion().setDimensions(
-                    numUpdates + 1, (atlasPos.x, atlasPos.x + texScale,
+                    numUpdates+1, (atlasPos.x, atlasPos.x + texScale,
                                      atlasPos.y, atlasPos.y + texScale))
                 numUpdates += 1
 
                 # Finally, we can tell the update it's valid now.
-                # Actually this is only true in one frame, but who cares?
                 update.setValid()
 
+                # In the next frame the update is processed, so call it later
+                self.updateCallbacks.append(update)
+
                 # Only add the uid to the output if the max updates
-                # aren't too much. Otherwise we spam the screen :P
+                # aren't too much. Otherwise we spam the screen
                 if self.maxShadowUpdatesPerFrame <= 8:
                     last += str(update.getUid()) + " "
 
