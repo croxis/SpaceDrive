@@ -17,15 +17,15 @@ from panda3d.core import VirtualFileSystem
 
 from .renderpipeline import RenderingPipeline
 
-from .import celestial_components
-from .import physics_components
+from . import celestial_components
+from . import physics_components
 
 from .graphic_system import GraphicsSystem
-from .import gui_system
-from .import orbit_system
-from .import physics_system
+from . import gui_system
+from . import orbit_system
+from . import physics_system
 
-from .import universals
+from . import universals
 
 if sys.version > '3':
     long = int
@@ -100,13 +100,16 @@ def init_system(system, component=None):
     sandbox.add_system(system)
 
 
-def init_graphics(system=GraphicsSystem, component=celestial_components.CelestialComponent, debug_mouse=False):
+def init_graphics(system=GraphicsSystem,
+                  component=celestial_components.CelestialComponent,
+                  debug_mouse=False):
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
     log.warning("TODO: Finish Implement")
-    vfs.mount(os.path.join(os.path.dirname(__file__), 'Shader/'), 'Shader',
-              VirtualFileSystem.MF_read_only)
-    #sandbox.base.camLens.set_far(20000000)
+    vfs.mount_loop(os.path.join(os.path.dirname(__file__), 'Shader/'),
+                   'Shader',
+                   VirtualFileSystem.MF_read_only)
+    # sandbox.base.camLens.set_far(20000000)
     #sandbox.base.camLens.set_far(2000000)
     sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.base.render_pipeline.loadSettings('pipeline.ini')

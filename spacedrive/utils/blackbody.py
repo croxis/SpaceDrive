@@ -49,6 +49,7 @@ __author__ = 'croxis'
 """
 
 import math
+from panda3d.core import Vec3
 
 
 def convert_K_to_RGB_float(temperature):
@@ -114,4 +115,4 @@ def convert_K_to_RGB(colour_temperature):
         else:
             blue = tmp_blue
 
-    return red, green, blue
+    return Vec3(red, green, blue)

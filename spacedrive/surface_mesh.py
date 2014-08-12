@@ -17,6 +17,7 @@ from panda3d.core import VBase4, Vec3
 import sandbox
 
 from .renderpipeline.Code.BetterShader import BetterShader
+from .utils import convertToPatches
 
 
 #you cant normalize in-place so this is a helper function
@@ -947,7 +948,7 @@ class myUVMapper(object):
 
 
 #def create_mesh(parentnp, debug=False, invert=False, width=32):
-def create_mesh(debug=False, invert=False, width=129):
+def create_mesh(debug=False, invert=False, width=32):
     """This creates a simple 17x17 grid mesh for the sides of our cube.
     The ultimate goal is to use a LOD system, probably based on quadtrees.
     If debug is true then we get a color gradient on our vertexes.
@@ -1009,6 +1010,7 @@ class Body(object):
         self.sides[3].set_hpr(0, 180, 0)
         self.sides[4].set_hpr(0, 90, 0)
         self.sides[5].set_hpr(180, 90, 0)
+        convertToPatches(self.node_path)
         self.init()
 
     def get_name(self):
@@ -1039,18 +1041,6 @@ class Body(object):
         self.node_path.set_shader_input(*args, **kwargs)
 
 
-class Atmosphere(Body):
-    '''planet is a parent nodepath that the 6 side mesh nodepaths will parent to.
-    planet can be moved, scale, and rotated with no problems'''
-
-    def init(self):
-        """Debug will generate colored pixels for fun time."""
-        shaders = BetterShader.load('Shader/Planet/planet_atmosphere_vert.glsl',
-                                    'Shader/Planet/planet_atmosphere_frag.glsl')
-        self.node_path.setShader(shaders)
-        self.set_scale(1.025)
-
-
 class Surface(Body):
     """Planet is a parent nodepath that the 6 side mesh nodepaths will parent
     to. Planet can be moved, scale, and rotated with no problems"""
@@ -1074,7 +1064,10 @@ class Surface(Body):
 
     def load_shaders(self):
         shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
-                                    'Shader/Planet/surface_fragment.glsl')
+                                    'Shader/Planet/surface_fragment.glsl',
+                                    '',
+                                    "Shader/DefaultObjectShader/tesscontrol.glsl",
+                                    "Shader/DefaultObjectShader/tesseval.glsl")
         for m in self.sides:
             m.set_shader(shaders)
 
@@ -1197,7 +1190,3 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
 
 def make_planet(name='planet', scale=1, debug=False):
     return Surface(name, scale, debug)
-
-
-def make_atmosphere(name='atmosphere'):
-    return Atmosphere(name)

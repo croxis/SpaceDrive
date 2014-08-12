@@ -138,8 +138,8 @@ def generate_node(name, database, parent_component):
             if 'atmosphere' in database:
                 render_component.atmosphere = Scattering()
                 render_component.atmosphere.setSettings({
-                    'radiusGround': 6371.0,
-                    'radiusAtmosphere': 6431.0,
+                    'radiusGround': database['radius']/1000 + 1.0,
+                    'radiusAtmosphere': database['radius']/1000 + 150.0,
                 })
                 render_component.atmosphere.precompute()
                 render_component.atmosphere.bindTo(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
@@ -153,15 +153,15 @@ def generate_node(name, database, parent_component):
             color = blackbody.convert_K_to_RGB_float(database['temperature'])
             render_component.mesh = surface_mesh.make_star(name=name, color=color)
             #Debug prototype purposes only
-            render_component.mesh.set_pos(2, 0, 2)
+            render_component.mesh.set_pos(0, 0, 0)
             #/Debug
             render_component.temperature = database['temperature']
             render_component.light = DirectionalLight()
             render_component.light.setAmbientColor(Vec3(0))
-            render_component.light.setColor(color)
+            render_component.light.setColor(Vec3(color))
             render_component.light.setDirection(render_component.mesh.get_pos())
-            #render_component.light.setShadowMapResolution(1024)
-            #render_component.light.setCastsShadows(True)
+            render_component.light.setShadowMapResolution(1024)
+            render_component.light.setCastsShadows(True)
             sandbox.base.render_pipeline.addLight(render_component.light)
 
         elif database['type'] == 'solid' or database['type'] == 'moon':
@@ -211,6 +211,16 @@ def calc_body_pos(component, time):
         zh = 0
     else:
         zh = r * (sin(v + w) * sin(i))
+    '''The above assumes looking "down" on the solar system where x and y are
+    the circle and z = 0 is on the heliocentric ecliptic. Panda3d uses the above.
+    Opengl is y up and z depth so we switch the y and z coordinates below..'''
+    #TODO: z+ is out of the screen so check if we need to flip the sign of zh
+    '''xh = r * (cos(N) * cos(v + w) - sin(N) * sin(v + w) * cos(i))
+    zh = r * (sin(N) * cos(v + w) + cos(N) * sin(v + w) * cos(i))
+    if is2d:
+        yh = 0
+    else:
+        yh = r * (sin(v + w) * sin(i))'''
     position = LPoint3d(xh, yh, zh)
     # If we are not a moon then our orbits are done in au.
     # Moons are done in km
