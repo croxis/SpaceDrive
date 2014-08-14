@@ -133,13 +133,11 @@ def generate_node(name, database, parent_component):
         #For porting to new render system only
         if database['type'] != 'star':
             render_component.mesh = surface_mesh.make_planet(name=name)
-            '''render_component.mesh = surface_mesh.make_planet(name=name,
-                                                         scale=celestial_component.radius)'''
             if 'atmosphere' in database:
                 render_component.atmosphere = Scattering()
                 render_component.atmosphere.setSettings({
-                    'radiusGround': database['radius']/1000 + 1.0,
-                    'radiusAtmosphere': database['radius']/1000 + 150.0,
+                    'radiusGround': database['radius']/1000.0,
+                    'radiusAtmosphere': database['radius']/1000.0 + database['atmosphere']['height']/1000.0,
                 })
                 render_component.atmosphere.precompute()
                 render_component.atmosphere.bindTo(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")

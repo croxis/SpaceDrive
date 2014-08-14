@@ -1010,7 +1010,8 @@ class Body(object):
         self.sides[3].set_hpr(0, 180, 0)
         self.sides[4].set_hpr(0, 90, 0)
         self.sides[5].set_hpr(180, 90, 0)
-        convertToPatches(self.node_path)
+        base.accept('h', self.node_path.hide)
+        base.accept('j', self.node_path.show)
         self.init()
 
     def get_name(self):
@@ -1068,6 +1069,7 @@ class Surface(Body):
                                     '',
                                     "Shader/DefaultObjectShader/tesscontrol.glsl",
                                     "Shader/DefaultObjectShader/tesseval.glsl")
+        convertToPatches(self.node_path)
         for m in self.sides:
             m.set_shader(shaders)
 

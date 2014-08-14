@@ -48,20 +48,10 @@ class GraphicsSystem(sandbox.EntitySystem):
                 relative_pos *= scale_factor
                 radius *= scale_factor
                 # Scale again if we are too far
-                '''if new_pos.length() > self.scale_start_distance:
-                    scale_factor = 1*(0.99999999)**((new_pos.length() - self.scale_start_distance))
-                    print("Scale factor", scale_factor)
-                    new_pos *= scale_factor
+                if relative_pos.length() > self.scale_start_distance:
+                    scale_factor = 1*(0.9999999)**((relative_pos.length() - self.scale_start_distance))
+                    relative_pos *= scale_factor
                     radius *= scale_factor
-                    #print(celestial_component.name)
-                    #print("Too far by", difference.length() - self.scale_start_distance)
-                    #print("Scale factor", scale_factor)
-                    print("New pos", new_pos)
-                    #print("New radius", radius)'''
-                #scale_factor = 1*(0.999999)**((difference.length() - self.scale_start_distance))
-                #new_pos *= scale_factor
-                #render_component.mesh.set_pos(new_pos.get_x(), new_pos.get_y(), new_pos.get_z())
-                #render_component.mesh.set_scale(scale_factor * celestial_component.radius)
             screen_pos = Point3(relative_pos.get_x(), relative_pos.get_y(), relative_pos.get_z())
             render_component.mesh.set_pos(screen_pos)
             render_component.mesh.set_scale(radius)
@@ -72,13 +62,11 @@ class GraphicsSystem(sandbox.EntitySystem):
                 vector *= self.scale_start_distance
                 sun_vector = Vec3(vector.get_x(), vector.get_y(), vector.get_z())
                 render_component.light.setDirection(sun_vector)
-                render_component.mesh.set_scale(1000)
-                render_component.mesh.set_pos(screen_pos)
 
             if render_component.atmosphere:
                 offset = Vec3(screen_pos.get_x(), screen_pos.get_y(), screen_pos.get_z())
                 render_component.atmosphere.adjustSetting("atmosphereOffset", offset)
-                sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput('sunIntensity', 5.0)
+                sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput('sunIntensity', 0.5)
                 vector = self.sun_pos - celestial_component.true_pos
                 vector.normalize()
                 sun_vector = Vec3(vector.get_x(), vector.get_y(), vector.get_z())

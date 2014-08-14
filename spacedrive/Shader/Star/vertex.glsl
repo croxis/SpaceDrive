@@ -16,7 +16,9 @@ in vec2 p3d_MultiTexCoord0;
 
 // Outputs
 layout(location=0) out VertexOutput vOutput;
-layout(location=8) out vec2 mapping;
+layout(location=8) out vec4 viewer;
+layout(location=12) out vec3 center;
+layout(location=15) out vec3 viewDir;
 
 
 uniform Projection
@@ -37,6 +39,7 @@ struct PandaMaterial {
 uniform PandaMaterial p3d_Material;
 
 uniform mat4 p3d_ModelViewProjectionMatrix;
+uniform mat4 p3d_ModelViewMatrixInverse;
 
 // We need this for the velocity
 uniform mat4 lastMVP;
@@ -49,36 +52,10 @@ uniform vec3 cameraSpherePos;
 
 void main()
 {
-    vec2 offset;
-    switch(gl_VertexID)
-    {
-    case 0:
-        //Bottom-left
-        mapping = vec2(-1.0, -1.0);
-        offset = vec2(-sphereRadius, -sphereRadius);
-        break;
-    case 1:
-        //Top-left
-        mapping = vec2(-1.0, 1.0);
-        offset = vec2(-sphereRadius, sphereRadius);
-        break;
-    case 2:
-        //Bottom-right
-        mapping = vec2(1.0, -1.0);
-        offset = vec2(sphereRadius, -sphereRadius);
-        break;
-    case 3:
-        //Top-right
-        mapping = vec2(1.0, 1.0);
-        offset = vec2(sphereRadius, sphereRadius);
-        break;
-    }
-
-    vec4 cameraCornerPos = vec4(cameraSpherePos, 1.0);
-    cameraCornerPos.xy += offset;
 
     // Transform normal to world space
     vOutput.normalWorld   = normalize(trans_model_to_world * vec4(p3d_Normal, 0) ).xyz;
+    //vOutput.normalWorld   = p3d_Normal;
 
     // Transform position to world space
     vOutput.positionWorld = (trans_model_to_world * p3d_Vertex).xyz;
@@ -98,4 +75,10 @@ void main()
 
     //gl_Position = trans_myCamera_to_clip_of_myCamera * cameraCornerPos;
     gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
+
+    viewer = p3d_ModelViewMatrixInverse * vec4(0.0, 0.0, 0.0, 1.0);
+    //viewDir = (p3d_Vertex + p3d_ModelViewMatrixInverse * vec4(p3d_MultiTexCoord0.xy * radius * 3.0, -radius, 0.0) - viewer).xyz;
+    viewDir = (p3d_Vertex + p3d_ModelViewMatrixInverse * vec4(p3d_MultiTexCoord0.xy * 3.0, -1, 0.0) - viewer).xyz;
+    center = (p3d_Vertex - viewer).xyz;
+
 }
