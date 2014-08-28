@@ -5,7 +5,7 @@ import os
 from panda3d.core import TransparencyAttrib, Texture, NodePath, PTAInt
 from panda3d.core import Mat4, CSYupRight, TransformState, CSZupRight
 from panda3d.core import PTAFloat, PTALMatrix4f, UnalignedLMatrix4f, LVecBase2i
-from panda3d.core import PTAVecBase3f, WindowProperties, Vec4, Vec2
+from panda3d.core import PTAVecBase3f, WindowProperties, Vec4, Vec2, PTAVecBase2f
 
 from direct.stdpy.file import open
 
@@ -19,6 +19,7 @@ from AmbientOcclusion import *
 from PipelineSettingsManager import PipelineSettingsManager
 from GUI.PipelineGuiManager import PipelineGuiManager
 from Globals import Globals
+from SystemAnalyzer import SystemAnalyzer
 from MountManager import MountManager
 
 
@@ -105,6 +106,14 @@ class RenderingPipeline(DebugObject):
             self.error("You have to call loadSettings first!")
             return
 
+        self.debug("Analyzing system ..")
+        SystemAnalyzer.analyze()
+
+
+        self.debug("Checking required Panda3D version ..")
+        SystemAnalyzer.checkPandaVersionOutOfDate(7,8,2014)
+
+
         # Mount everything first
         self.mountManager.mount()
 
@@ -163,7 +172,7 @@ class RenderingPipeline(DebugObject):
         self.debug("Window size is", self.size.x, "x", self.size.y)
 
         self.showbase.camLens.setNearFar(0.1, 50000)
-        self.showbase.camLens.setFov(90)
+        self.showbase.camLens.setFov(115)
 
         self.showbase.win.setClearColor(Vec4(1.0, 0.0, 1.0, 1.0))
 
@@ -222,16 +231,10 @@ class RenderingPipeline(DebugObject):
             self._createDofStorage()
             self._createBlurBuffer()
 
-        self._setupFinalPass()
-        self._setShaderInputs()
-
-        # add update task
-        self._attachUpdateTask()
-
         # Not sure why it has to be 0.25. But that leads to the best result
         aspect = float(self.size.y) / self.size.x
         self.onePixelShift = Vec2(
-            0.5 / self.size.x, 0.5 / self.size.y / aspect)
+            0.125 / self.size.x, 0.125 / self.size.y / aspect)
 
         # Annoying that Vec2 has no multliply-operator for non-floats
         multiplyVec2 = lambda a, b: Vec2(a.x*b.x, a.y*b.y)
@@ -243,14 +246,15 @@ class RenderingPipeline(DebugObject):
             ]
         else:
             self.pixelShifts = [Vec2(0), Vec2(0)]
+        self.currentPixelShift = PTAVecBase2f.emptyArray(1)
+        self.lastPixelShift = PTAVecBase2f.emptyArray(1)
 
-        # display shadow atlas is defined
-        # todo: move this to the gui manager
-        # if self.settings.displayShadowAtlas and self.haveLightingPass:
-        # self.atlasDisplayImage = OnscreenImage(
-        #     image=self.lightManager.getAtlasTex(), pos=(
-        #         self.showbase.getAspectRatio() - 0.55, 0, 0.2),
-        #     scale=(0.5, 0, 0.5))
+
+        self._setupFinalPass()
+        self._setShaderInputs()
+
+        # add update task
+        self._attachUpdateTask()
 
     def getForwardScene(self):
         """ Reparent objects to this scene to use forward rendering.
@@ -332,7 +336,7 @@ class RenderingPipeline(DebugObject):
         if self.haveMRT:
             self.deferredTarget.addAuxTextures(3)
             self.deferredTarget.setAuxBits(16)
-            self.deferredTarget.setColorBits(16)
+            self.deferredTarget.setColorBits(32)
             self.deferredTarget.setDepthBits(32)
 
 
@@ -499,6 +503,11 @@ class RenderingPipeline(DebugObject):
                 "positionBuffer", self.deferredTarget.getColorTexture())
             self.combiner.setShaderInput(
                 "velocityBuffer", self.deferredTarget.getAuxTexture(1))
+            self.combiner.setShaderInput("currentPixelShift",
+                self.currentPixelShift)
+            self.combiner.setShaderInput("lastPixelShift",
+                self.lastPixelShift)
+
 
             if self.blurEnabled:
                 self.combiner.setShaderInput(
@@ -565,7 +574,7 @@ class RenderingPipeline(DebugObject):
 
         # Set GI inputs
         if self.settings.enableGlobalIllumination:
-            self.globalIllum.bindTo(self.lightingComputeContainer)
+            self.globalIllum.bindTo(self.lightingComputeContainer, "giData")
 
         # Finally, set shaders
         self.reloadShaders()
@@ -768,24 +777,24 @@ class RenderingPipeline(DebugObject):
         """ Attaches the update tasks to the showbase """
 
         self.showbase.addTask(
-            self._preRenderCallback, "PreRender", sort=-5000)
+            self._preRenderCallback, "RP_BeforeRender", sort=-5000)
 
         self.showbase.addTask(
-            self._update, "UpdateRenderingPipeline", sort=-10)
+            self._update, "RP_Update", sort=-10)
 
 
         if self.haveLightingPass:
             self.showbase.addTask(
-                self._updateLights, "UpdateLights", sort=-9)
+                self._updateLights, "RP_UpdateLights", sort=-9)
             self.showbase.addTask(
-                self._updateShadows, "updateShadows", sort=-8)
+                self._updateShadows, "RP_UpdateShadows", sort=-8)
 
         if self.settings.displayOnscreenDebugger:
             self.showbase.addTask(
-                self._updateGUI, "UpdateGUI", sort=7)
+                self._updateGUI, "RP_UpdateGUI", sort=7)
 
         self.showbase.addTask(
-            self._postRenderCallback, "PosRender", sort=5000)
+            self._postRenderCallback, "RP_AfterRender", sort=5000)
 
 
     def _preRenderCallback(self, task=None):
@@ -854,6 +863,8 @@ class RenderingPipeline(DebugObject):
         self.currentMVP[0] = self._computeMVP()
 
         shift = self.pixelShifts[self.currentShiftIndex[0]]
+        self.lastPixelShift[0] = self.currentPixelShift[0]
+        self.currentPixelShift[0] = shift
         Globals.base.camLens.setFilmOffset(shift.x, shift.y)
 
         if task is not None:
@@ -986,6 +997,9 @@ class RenderingPipeline(DebugObject):
 
         if self.settings.enableGlobalIllumination:
             defines.append(("USE_GLOBAL_ILLUMINATION", 1))
+
+        if self.settings.enableScattering:
+            defines.append(("USE_SCATTERING", 1))
 
         # Pass near far
         defines.append(("CAMERA_NEAR", Globals.base.camLens.getNear()))
