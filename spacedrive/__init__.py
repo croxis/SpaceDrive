@@ -34,6 +34,8 @@ log = DirectNotify().newCategory("SpaceDrive")
 
 vfs = VirtualFileSystem.getGlobalPtr()
 
+base = None
+
 
 def init(
         run_server=False,
@@ -87,6 +89,8 @@ def init(
         loadPrcFileData("", "textures-power-2 none")
     log.info("Loading Sandbox")
     sandbox.init(log_level=log_level)
+    global base
+    base = sandbox.base
 
 
 def init_system(system, component=None):
