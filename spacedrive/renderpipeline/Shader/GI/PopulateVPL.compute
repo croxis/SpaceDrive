@@ -4,89 +4,50 @@
 // developed by tobspr
 
 #include "Includes/Configuration.include"
-
+#include "Includes/PositionReconstruction.include"
 #include "Includes/Packing.include"
+#include "Includes/GIData.include"
 
-layout (local_size_x = 4, local_size_y = 4, local_size_z=4) in;
-
+layout (local_size_x = 16, local_size_y = 16) in;
 
 uniform sampler2D atlasDepth;
 uniform sampler2D atlasColor;
-uniform sampler2D atlasNormal;
-uniform vec3 gridStart;
-uniform vec3 gridEnd;
-uniform ivec3 gridSize;
-uniform writeonly image2D target;
-uniform writeonly image2D targetColor;
 
+uniform GIData giData;
+uniform mat4 lightMVP;
+uniform mat4 lightData;
+uniform writeonly image3D target;
 
-#define MAX_SOURCE_COUNT 32
+// const vec3 texelShift = 0.0 * vec3(0.5, 0.5, 0.5);
 
-uniform int lightCount;
-uniform mat4 lightMVPData[MAX_SOURCE_COUNT];
-uniform vec4 lightData[MAX_SOURCE_COUNT];
+uniform mat4 trans_clip_of_lightLens_to_mainRender;
 
 void main() {
 
   // TODO: Optimize
 
   // Get coords
-  ivec3 texelCoords = ivec3(gl_GlobalInvocationID.xyz);
-  ivec2 storeCoord = texelCoords.xy + ivec2(texelCoords.z*gridSize.x, 0);
+  ivec2 texelCoords = ivec2(gl_GlobalInvocationID.xy);
 
-  vec3 localCoords = (vec3(texelCoords)) / vec3(gridSize);
-  vec3 worldCoords = (localCoords * (gridEnd-gridStart)) + gridStart;
+  // // Unpack data
+  ivec2 sourceAtlasPos = ivec2(lightData[0].xy);
+  int sourceAtlasResolution = int(lightData[0].z); 
+  float nearPlane = lightData[1].x;
+  float farPlane = lightData[1].y;
+  vec3 lightDir = normalize(lightData[2].xyz);
+  vec3 color = lightData[3].xyz;
 
-  // In this variables the resulting normals and diffuse is stored
-  vec3 resultNormal = vec3(0);
-  vec3 resultColor = vec3(0);
-  float resultShadowFactor = 0.0;
+  ivec2 sourceCoords = sourceAtlasPos + texelCoords;
 
-  // Process each shadow source, to get as many accurate normals as possible
-  for (int i = 0; i < min(lightCount, MAX_SOURCE_COUNT); i++) {
+  float texelDepth = texelFetch(atlasDepth, sourceCoords, 0).x;
+  vec3  texelColor = texelFetch(atlasColor, sourceCoords, 0).rgb;
 
-    vec4 data = lightData[i];
-    mat4 mvp = lightMVPData[i];
+  // // Reconstruct world position
+  vec2 texcoordLinear = texelCoords / float(sourceAtlasResolution);
 
-    // Unpack data
-    float impactFactor = data.w;
-    vec2 sourceAtlasPos = data.xy;
-    float sourceAtlasScale = data.z; 
-
-    // Shadow projection
-    vec4 projected = mvp * vec4(worldCoords, 1);
-    vec3 projCoord = projected.xyz / projected.w;
-    projCoord.xyz = projCoord.xyz * 0.5 + 0.5;
-
-    // Clamp to borders
-    if (all(greaterThan(projCoord.xy, vec2(0.0))) &&
-        all(lessThan(projCoord.xy, vec2(1.0))) ) {
-
-      // Convert 0..1 coord to atlas space coord
-      vec2 atlasCoord = projCoord.xy*sourceAtlasScale + sourceAtlasPos;
-
-      // Shadowed?
-      float sampledZ = texture(atlasDepth, atlasCoord.xy).x;
-      float sampleDifference = sampledZ - projCoord.z;
-      float shadowFactor = 1.0 - step(sampleDifference, -0.005);
-
-      // Read RSM
-      vec3 diffuse = texture(atlasColor, atlasCoord).rgb;
-
-      // Normal is stored packed
-      vec3 normal = texture(atlasNormal, atlasCoord).rgb*4.0 - 2.0;
-      
-      // if ( impactFactor < 0.5) {
-        resultNormal += normal;
-        resultNormal = normalize(resultNormal);
-        resultColor += diffuse * shadowFactor * impactFactor;
-        resultShadowFactor += shadowFactor;
-      // }
-    }
-  }
-
-  // resultColor *= 0.2;
-
-  imageStore(target, storeCoord, vec4(abs(resultNormal), 1.0) );
-  imageStore(targetColor, storeCoord, vec4(resultColor, 1.0) );
+  vec3 surfacePos = calculateSurfacePos(texelDepth, texcoordLinear, nearPlane, farPlane, inverse(lightMVP));
+  vec3 localPos = (surfacePos - giData.gridStart) / giData.gridScale;
+  ivec3 localPosInt = ivec3(localPos * giData.gridSize);
+  imageStore(target, localPosInt, vec4( texelColor, 1.0));
+  // imageStore(target, ivec3(texelCoords, 0), vec4(surfacePos, 1.0));
 }

@@ -44,7 +44,7 @@ frame-rate-meter-side-margins 0.4
 
 
 # Pstats
-pstats-target-frame-rate 60.0
+pstats-target-frame-rate 30.0
 # pstats-unused-states #f
 
 # For smoother animations
@@ -160,6 +160,4 @@ model-cache-dir $USER_APPDATA/Panda3D-1.9/cache
 model-cache-textures #f
 
 notify-level-pnmimage error
-
-
 show-buffers #f

@@ -29,7 +29,6 @@ void main() {
 
     // Create a material to store the properties on
     Material m;
-
     vec4 sampledDiffuse = texture(DIFFUSE_TEX, vOutput.texcoord);
 
     // Alpha test
@@ -44,9 +43,12 @@ void main() {
     float metallic = vOutput.materialSpecular.y;
     float roughnessFactor = vOutput.materialSpecular.z;
    
+    // bumpFactor = 0.0;
+
     vec3 detailNormal = sampledNormal.rgb * 2.0 - 1.0;
     detailNormal = mix(vec3(0,0,1), detailNormal, bumpFactor);
     detailNormal = normalize(detailNormal);
+
 
     vec3 normal = normalize(vOutput.normalWorld);
     vec3 tangent; vec3 binormal;
@@ -56,6 +58,7 @@ void main() {
         tangent * detailNormal.x + binormal * detailNormal.y + normal * detailNormal.z
     );
 
+
     m.baseColor = sampledDiffuse.rgb * vOutput.materialDiffuse.rgb;
     m.roughness = sampledRoughness.r * roughnessFactor;
     m.specular = sampledSpecular.r * specularFactor;
@@ -63,17 +66,6 @@ void main() {
     m.normal = mixedNormal;
 
     m.position = vOutput.positionWorld;
-
-
-    // Visualize GI Grid
-    // float gridSize = 2.0;
-    // float lineSize = 0.2;
-
-    // if (mod(m.position.x, gridSize) < lineSize || mod(m.position.y, gridSize) < lineSize || mod(m.position.z, gridSize) < lineSize) {
-    //     m.baseColor = vec3(10,0,0);
-    //     m.roughness = vec3(1);
-    //     m.metallic = 0.0;
-    // }
 
     renderMaterial(m);
 }

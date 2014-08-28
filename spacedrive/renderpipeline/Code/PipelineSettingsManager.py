@@ -39,6 +39,7 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("maxShadowUpdatesPerFrame", int, 2)
         self._addSetting("numShadowSamples", int, 8)
         self._addSetting("useHardwarePCF", bool, False)
+        self._addSetting("alwaysUpdateAllShadows", bool, False)
 
         # [Motion blur]
         self._addSetting("motionBlurEnabled", bool, True)
@@ -53,4 +54,5 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("displayDebugStats", bool, True)
         self._addSetting("dumpGeneratedShaders", bool, False)
 
-        self._addSetting("enableTemporalReprojection", bool, True)
+        self._addSetting("enableTemporalReprojection", bool, False)
+        self._addSetting("enableScattering", bool, False)
