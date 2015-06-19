@@ -28,11 +28,11 @@ def normalize(vec):
 
 # Build array for new format.
 array = GeomVertexArrayFormat()
-array.addColumn(InternalName.make('vertex'), 3, Geom.NTFloat32, Geom.CPoint)
-array.addColumn(InternalName.make('texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
-array.addColumn(InternalName.make('normal'), 3, Geom.NTFloat32, Geom.CVector)
-array.addColumn(InternalName.make('binormal'), 3, Geom.NTFloat32, Geom.CVector)
-array.addColumn(InternalName.make('tangent'), 3, Geom.NTFloat32, Geom.CVector)
+array.addColumn(InternalName.make(b'vertex'), 3, Geom.NTFloat32, Geom.CPoint)
+array.addColumn(InternalName.make(b'texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
+array.addColumn(InternalName.make(b'normal'), 3, Geom.NTFloat32, Geom.CVector)
+array.addColumn(InternalName.make(b'binormal'), 3, Geom.NTFloat32, Geom.CVector)
+array.addColumn(InternalName.make(b'tangent'), 3, Geom.NTFloat32, Geom.CVector)
 
 # Create and register format.
 format = GeomVertexFormat()
@@ -166,12 +166,12 @@ class myGeom(object):
 
         # Build array for new format.
         array = GeomVertexArrayFormat()
-        array.addColumn(InternalName.make('vertex'), 3, Geom.NTFloat32, Geom.CPoint)
-        array.addColumn(InternalName.make('texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
-        array.addColumn(InternalName.make('normal'), 3, Geom.NTFloat32, Geom.CVector)
+        array.addColumn(InternalName.make(b'vertex'), 3, Geom.NTFloat32, Geom.CPoint)
+        array.addColumn(InternalName.make(b'texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
+        array.addColumn(InternalName.make(b'normal'), 3, Geom.NTFloat32, Geom.CVector)
         if self.use_tangents:
-            array.addColumn(InternalName.make('binormal'), 3, Geom.NTFloat32, Geom.CVector)
-            array.addColumn(InternalName.make('tangent'), 3, Geom.NTFloat32, Geom.CVector)
+            array.addColumn(InternalName.make(b'binormal'), 3, Geom.NTFloat32, Geom.CVector)
+            array.addColumn(InternalName.make(b'tangent'), 3, Geom.NTFloat32, Geom.CVector)
 
         # Create and register format.
         format = GeomVertexFormat()
@@ -183,9 +183,9 @@ class myGeom(object):
             vdata = GeomVertexData('ngon', format, Geom.UHStatic)
             geom = Geom(vdata)
             tri = GeomTriangles(Geom.UHStatic)
-            vertex = GeomVertexWriter(vdata, 'vertex')
-            normal = GeomVertexWriter(vdata, 'normal')
-            texcoord = GeomVertexWriter(vdata, 'texcoord')
+            vertex = GeomVertexWriter(vdata, b'vertex')
+            normal = GeomVertexWriter(vdata, b'normal')
+            texcoord = GeomVertexWriter(vdata, b'texcoord')
             geoms.append({'geom':geom,
                           'tri':tri,
                           'vertex':vertex,
@@ -195,8 +195,8 @@ class myGeom(object):
                           'vdata':vdata,
                           'color':i})
             if self.use_tangents:
-                tangent = GeomVertexWriter(vdata, 'tangent')
-                binormal = GeomVertexWriter(vdata, 'binormal')
+                tangent = GeomVertexWriter(vdata, b'tangent')
+                binormal = GeomVertexWriter(vdata, b'binormal')
                 geoms[i]['tangent'] = tangent
                 geoms[i]['binormal'] = binormal
 
