@@ -1,5 +1,6 @@
 #version 400
-#pragma file "PrecomputeLights.fragment"
+
+
 
 #extension GL_ARB_shader_image_load_store : enable
 
@@ -10,34 +11,23 @@
 
 
 // Includes
-#include "Includes/Configuration.include"
-#include "Includes/Light.include"
-#include "Includes/Packing.include"
-#include "Includes/PositionReconstruction.include"
-#include "Includes/Frustum.include"
-#include "Includes/LightCulling.include"
+#pragma include "Includes/Configuration.include"
+#pragma include "Includes/Structures/Light.struct"
+#pragma include "Includes/PositionReconstruction.include"
+#pragma include "Includes/Structures/Frustum.struct"
+#pragma include "Includes/LightCulling.include"
 
 in vec2 texcoord;
 
 BINDLESS uniform sampler2D depth;
 
-layout (r32i) uniform iimage2D destination;
+layout (r32i) uniform writeonly iimageBuffer destinationBuffer;
+
+uniform isamplerBuffer renderedLightsBuffer;
+
 
 // Per-Light data and count
 uniform Light lights[MAX_VISIBLE_LIGHTS];
-
-uniform int countPointLight;
-uniform int arrayPointLight[MAX_POINT_LIGHTS];
-
-uniform int arrayPointLightShadow[MAX_POINT_LIGHTS];
-uniform int countPointLightShadow;
-
-uniform int countDirectionalLight;
-uniform int arrayDirectionalLight[MAX_DIRECTIONAL_LIGHTS];
-
-uniform int countDirectionalLightShadow;
-uniform int arrayDirectionalLightShadow[MAX_DIRECTIONAL_LIGHTS];
-
 uniform vec4 bufferSize;
 
 
@@ -51,7 +41,11 @@ uniform mat4 PROJ_MAT;
 uniform mat4 VIEW_MAT;
 uniform mat4 MODEL_VIEW_PROJ_MAT;
 
+uniform vec3 cameraPosition;
+
 const ivec2 patchSize = ivec2(LIGHTING_COMPUTE_PATCH_SIZE_X, LIGHTING_COMPUTE_PATCH_SIZE_Y);
+
+out vec4 debugOutput;
 
 
 void main() {
@@ -67,11 +61,13 @@ void main() {
 
     // Position on screen
     ivec2 virtualScreenSize = (precomputeSize) * patchSize;
-
     ivec2 screenCoord = ivec2( (gl_FragCoord.xy - 0.5) * patchSize);
 
-    // Where to store the data
-    ivec2 storageCoord = precomputeCoord * 8;
+    // Base stride, this is where our data block begins
+    int bufferBaseStride = (precomputeCoord.x + precomputeCoord.y * precomputeSize.x) * LIGHTING_PER_TILE_STRIDE;
+
+    // This points to the beginning of the light data block
+    int currentBufferOrigin = bufferBaseStride + 16;
 
     // Compute Min and Max depth
     float minDepth = 1.0;
@@ -86,8 +82,8 @@ void main() {
     // vec2 newCoordTexel;
 
     // Compute min / max depth per tile
-    for (int x = 0; x < LIGHTING_COMPUTE_PATCH_SIZE_X; x+=LIGHTING_MIN_MAX_DEPTH_ACCURACY*2) {
-        for (int y = 0; y < LIGHTING_COMPUTE_PATCH_SIZE_X; y+=LIGHTING_MIN_MAX_DEPTH_ACCURACY) {
+    for (int x = 0; x < LIGHTING_COMPUTE_PATCH_SIZE_X; x+=LIGHTING_MIN_MAX_DEPTH_ACCURACY) {
+        for (int y = 0; y < LIGHTING_COMPUTE_PATCH_SIZE_Y; y+=LIGHTING_MIN_MAX_DEPTH_ACCURACY) {
             newCoord = screenCoord + ivec2(x + y%2,y);
             // newCoordTexel = vec2(x,y) * texelSize + screenCoordTexel;
 
@@ -115,19 +111,45 @@ void main() {
 
     // Init counters
     int processedPointLights = 0;
-    int processedShadowPointLights = 0;
+    int processedShadowedPointLights = 0;
     int processedDirectionalLights = 0;
-    int processedDirectionalShadowLights = 0;
+    int processedShadowedDirectionalLights = 0;
+    int processedSpotLights = 0;
+    int processedShadowedSpotLights = 0;
 
-    if (false && minDepthLinear > 9000.0) {
+    // Read light counts
+    int countPointLight = min(MAX_POINT_LIGHTS, 
+        texelFetch(renderedLightsBuffer, 0).r);
+
+    int countPointLightShadow = min(MAX_SHADOWED_POINT_LIGHTS, 
+        texelFetch(renderedLightsBuffer, 1).r);
+
+    int countDirectionalLight = min(MAX_DIRECTIONAL_LIGHTS, 
+        texelFetch(renderedLightsBuffer, 2).r);
+
+    int countDirectionalLightShadow = min(MAX_SHADOWED_DIRECTIONAL_LIGHTS, 
+        texelFetch(renderedLightsBuffer, 3).r);
+
+    int countSpotLight = min(MAX_SPOT_LIGHTS, 
+        texelFetch(renderedLightsBuffer, 4).r);
+
+    int countSpotLightShadow = min(MAX_SHADOWED_SPOT_LIGHTS, 
+        texelFetch(renderedLightsBuffer, 5).r);
+
+
+    vec3 maxDepthPoint = calculateSurfacePos(maxDepth, texcoord);
+    vec3 minDepthPoint = calculateSurfacePos(minDepth, texcoord);
+    vec3 frustumEndPoint = calculateSurfacePos(1.0, texcoord);
+    vec3 viewVector = normalize(frustumEndPoint - cameraPosition);
+
+
+    if (false && minDepthLinear > 6000.0) {
         // Only skybox. We can stop here.
-        processedPointLights = 0;
-        processedShadowPointLights = 0;
 
     } else {
 
         // Compute tile bounds, needed for frustum
-        vec2 tileScale = vec2(virtualScreenSize) * 0.5f / vec2(patchSize);
+        vec2 tileScale = vec2(screenSize) * 0.5f / vec2(patchSize);
         vec2 tileBias = tileScale - vec2(precomputeCoord);
 
         // Store matrices in local variables as their name
@@ -155,90 +177,134 @@ void main() {
         frustum.near   = minDepthLinear;
         frustum.far    = maxDepthLinear;
 
+        frustum.nearPlane = frustumOffset + vec4(0, 0, 0, -minDepthLinear);
+        frustum.farPlane = frustumOffset + vec4(0, 0, 0, maxDepthLinear);
+
+        // minDepthLinear = 1.0;
         frustum.viewMat = viewMat;
         frustum.mvpMat  = mvpMat;
 
-        // Reset data buffer (not neccessary, only for debugging)
-        #ifdef LIGHTING_CLEAR_BUFFER_EACH_FRAME
-            for (int x = 0; x < 8; x++) {
-                for (int y = 0; y < 8; y++) {
-                    imageStore(destination, storageCoord+ivec2(x, y), ivec4(0) );
-                }
-            }
-        #endif  
-
-        // Buffer layout:
-        // First 8 pixels store count
-        // Second/Third line stores point lights
-        // Fourth/Fifth line stores shadow point lights
-        // Sixt stores directional lights
-        // Seventh stores directional shadowed lights
-        // Eight is free (yet)
+        int currentBufferPos = 16;
 
         // Process Point Lights
-        ivec2 baseOffset = storageCoord + ivec2(0,1);
-        ivec2 currentOffset = ivec2(0);
-
         for (int i = 0; i < countPointLight; i++) {
-            int index = arrayPointLight[i];
+            int index = texelFetch(renderedLightsBuffer, currentBufferPos + i).x;
             Light light = lights[index];
             if (isPointLightInFrustum(light, frustum)) {
-                currentOffset = ivec2(processedPointLights % 8, processedPointLights / 8);
-                imageStore(destination, baseOffset + currentOffset, ivec4(index));
+                imageStore(destinationBuffer, currentBufferOrigin + processedPointLights, ivec4(index));
                 processedPointLights += 1;
+
+                // Make sure we dont write more lights than we actually have
+                if (processedPointLights >= MAX_TILE_POINT_LIGHTS) break;
             }
+
         }
+
+        currentBufferOrigin += MAX_TILE_POINT_LIGHTS;
+        currentBufferPos += MAX_POINT_LIGHTS;
 
         // Process shadowed point lights
-        baseOffset = storageCoord + ivec2(0,3);
-        currentOffset = ivec2(0);
-
         for (int i = 0; i < countPointLightShadow; i++) {
-            int index = arrayPointLightShadow[i];
+            int index = texelFetch(renderedLightsBuffer, currentBufferPos + i).x;
             Light light = lights[index];
             if (isPointLightInFrustum(light, frustum)) {
-                currentOffset = ivec2(processedShadowPointLights % 8, processedShadowPointLights / 8);
-                imageStore(destination, baseOffset + currentOffset, ivec4(index));
-                processedShadowPointLights += 1;
+                imageStore(destinationBuffer, currentBufferOrigin + processedShadowedPointLights, ivec4(index));
+                processedShadowedPointLights += 1;
+
+                // Make sure we dont write more lights than we actually have
+                if (processedShadowedPointLights >= MAX_TILE_SHADOWED_POINT_LIGHTS) break;
             }
         }
 
-        // Process directional lights
-        baseOffset = storageCoord + ivec2(0,5);
-        currentOffset = ivec2(0);
+        currentBufferOrigin += MAX_TILE_SHADOWED_POINT_LIGHTS;
+        currentBufferPos += MAX_SHADOWED_POINT_LIGHTS;
 
+        // Process directional lights
         for (int i = 0; i < countDirectionalLight; i++) {
             // No frustum check. Directional lights are always visible
-            int index = arrayDirectionalLight[i];
+            int index = texelFetch(renderedLightsBuffer, currentBufferPos + i).x;
             Light light = lights[index];
-            currentOffset = ivec2(processedDirectionalLights % 8, processedDirectionalLights / 8);
-            imageStore(destination, baseOffset + currentOffset, ivec4(index));
+            imageStore(destinationBuffer, currentBufferOrigin + processedDirectionalLights, ivec4(index));
             processedDirectionalLights += 1;
+
+            // Make sure we dont write more lights than we actually have
+            if (processedDirectionalLights >= MAX_TILE_DIRECTIONAL_LIGHTS) break;
+
         }
 
+        currentBufferOrigin += MAX_TILE_DIRECTIONAL_LIGHTS;
+        currentBufferPos += MAX_DIRECTIONAL_LIGHTS;
 
         // Process shadowed directional lights
-        baseOffset = storageCoord + ivec2(0,6);
-        currentOffset = ivec2(0);
-
         for (int i = 0; i < countDirectionalLightShadow; i++) {
             // No frustum check. Directional lights are always visible
-            int index = arrayDirectionalLightShadow[i];
+            int index = texelFetch(renderedLightsBuffer, currentBufferPos + i).x;
             Light light = lights[index];
-            currentOffset = ivec2(processedDirectionalShadowLights % 8, processedDirectionalShadowLights / 8);
-            imageStore(destination, baseOffset + currentOffset, ivec4(index));
-            processedDirectionalShadowLights += 1;
+            imageStore(destinationBuffer, currentBufferOrigin + processedShadowedDirectionalLights, ivec4(index));
+            processedShadowedDirectionalLights += 1;
+
+            // Make sure we dont write more lights than we actually have
+            if (processedShadowedDirectionalLights >= MAX_TILE_SHADOWED_DIRECTIONAL_LIGHTS) break;
+
         }
 
+        currentBufferOrigin += MAX_TILE_SHADOWED_DIRECTIONAL_LIGHTS;
+        currentBufferPos += MAX_SHADOWED_DIRECTIONAL_LIGHTS;
+
+        // Process Spot Lights
+        for (int i = 0; i < countSpotLight; i++) {
+            int index = texelFetch(renderedLightsBuffer, currentBufferPos + i).x;
+            Light light = lights[index];
+            if (isSpotLightInFrustum(light, frustum)) {
+                imageStore(destinationBuffer, currentBufferOrigin + processedSpotLights, ivec4(index));
+                processedSpotLights += 1;
+
+                // Make sure we dont write more lights than we actually have
+                if (processedSpotLights >= MAX_TILE_SPOT_LIGHTS) break;
+
+            }
+        }
+
+        currentBufferOrigin += MAX_TILE_SPOT_LIGHTS;
+        currentBufferPos += MAX_SPOT_LIGHTS;
+
+
+        // Process shadowed Spot lights
+        for (int i = 0; i < countSpotLightShadow; i++) {
+            int index = texelFetch(renderedLightsBuffer, currentBufferPos + i).x;
+            Light light = lights[index];
+            if (isSpotLightInFrustum(light, frustum)) {
+                imageStore(destinationBuffer, currentBufferOrigin + processedShadowedSpotLights, ivec4(index));
+                processedShadowedSpotLights += 1;
+
+                // Make sure we dont write more lights than we actually have
+                if (processedShadowedSpotLights >= MAX_TILE_SHADOWED_SPOT_LIGHTS) break;
+
+            }
+        }
+
+        currentBufferOrigin += MAX_TILE_SHADOWED_SPOT_LIGHTS;
+        currentBufferPos += MAX_SHADOWED_SPOT_LIGHTS;
+        
 
     }
 
-    imageStore(destination, storageCoord + ivec2(0, 0), ivec4(processedPointLights));
-    imageStore(destination, storageCoord + ivec2(1, 0), ivec4(processedShadowPointLights));
-    imageStore(destination, storageCoord + ivec2(2, 0), ivec4(processedDirectionalLights));
-    imageStore(destination, storageCoord + ivec2(3, 0), ivec4(processedDirectionalShadowLights));
+    // Store counters
+    imageStore(destinationBuffer, bufferBaseStride + 0, ivec4(processedPointLights));
+    imageStore(destinationBuffer, bufferBaseStride + 1, ivec4(processedShadowedPointLights));
+    imageStore(destinationBuffer, bufferBaseStride + 2, ivec4(processedDirectionalLights));
+    imageStore(destinationBuffer, bufferBaseStride + 3, ivec4(processedShadowedDirectionalLights));
+    imageStore(destinationBuffer, bufferBaseStride + 4, ivec4(processedSpotLights));
+    imageStore(destinationBuffer, bufferBaseStride + 5, ivec4(processedShadowedSpotLights));
 
-    // float lightsVisibleFloat = float(processedPointLights + processedShadowPointLights) / float(2.0);
-    // vec3 lightCountIndicator = vec3(lightsVisibleFloat, 1.0 - lightsVisibleFloat , 0);
+        float lightsVisibleFloat = float(
+            processedPointLights + processedShadowedPointLights + 
+            processedSpotLights + processedShadowedSpotLights) / float(20.0);
+        vec3 lightCountIndicator = vec3(lightsVisibleFloat, 1.0 - lightsVisibleFloat , 0);
+        debugOutput = vec4(lightCountIndicator, 1);
+
+        // debugOutput = vec4(maxDepthLinear / 100.0);
+        // debugOutput = vec4( (VIEW_MAT * vec4(maxDepthPoint, 1)).w );
+        // debugOutput = vec4( maxDepthLinear / CAMERA_FAR );
 
 }

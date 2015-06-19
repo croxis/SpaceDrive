@@ -2,22 +2,27 @@
 .pyd
 .pyc
 *.pyc
-Shader/Cache/
 *.ignore
-PerformanceTesting
-MeshSimplifier
-Assets/
 *.sublime-workspace
 *.sublime-project
 Core/Windows/
 Core/Linux/
 Cython/
 *.psd
-Data/Scattering/
 Temp/
-ScatteringDump/
-Models/*.blend*
+Models/**.blend
+Models/PBSTest/Scene.egg
 *.blend1
 *.blend2
 Toolkit/Voxelizer/convert
 Toolkit/Voxelizer/temp
+Toolkit/Blender Material Library/tex
+Toolkit/Blender Material Library/MaterialLibrary.egg
+.idea/
+/.project
+Samples/03-Jimmy/
+Samples/05-Open-Driving-3D/
+instance.pid
+TODO.txt
+Models/VertexPerformanceTest/Scene.egg
+

@@ -1,3 +1,4 @@
+#pragma once
 /**
  * Copyright (C) 2013 Jorge Jimenez (jorge@iryoku.com)
  * Copyright (C) 2013 Jose I. Echevarria (joseignacioechevarria@gmail.com)
@@ -156,7 +157,7 @@
  *         #define SMAA_RT_METRICS float4(1.0 / 1280.0, 1.0 / 720.0, 1280.0, 720.0)
  *         #define SMAA_HLSL_4
  *         #define SMAA_PRESET_HIGH
- *         #include "SMAA.h"
+ *         #pragma include "SMAA.h"
  *
  *     Note that SMAA_RT_METRICS doesn't need to be a macro, it can be a
  *     uniform variable. The code is designed to minimize the impact of not
@@ -1331,7 +1332,6 @@ float4 SMAAResolvePS(float2 texcoord,
     // Velocity is assumed to be calculated for motion blur, so we need to
     // inverse it for reprojection:
     float2 velocity = -SMAA_DECODE_VELOCITY(SMAASamplePoint(velocityTex, texcoord).rg);
-
 
     // Fetch current pixel:
     float4 current = SMAASamplePoint(currentColorTex, texcoord);

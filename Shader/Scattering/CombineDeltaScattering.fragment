@@ -1,8 +1,7 @@
 #version 150
-#pragma file "CombineDeltaScattering.fragment"
 
-#include "Scattering/ScatteringOptions.include"
-#include "Scattering/Scattering.include"
+
+#pragma include "Includes/ScatteringPrecompute.include"
 
 uniform ScatteringOptions options;
 

@@ -24,12 +24,15 @@ class PipelineGuiManager(DebugObject):
         self.body = Globals.base.pixel2d
         self.showbase = pipeline.showbase
         self.guiActive = False
+        self.enableGISliders = False
         self.window = UIWindow(
             "Pipeline Debugger", 280, Globals.base.win.getYSize())
         self.defines = {}
         self.bufferViewerParent = Globals.base.pixel2d.attachNewNode(
             "Buffer Viewer GUI")
         self.bufferViewer = BufferViewerGUI(self.bufferViewerParent)
+        self.setup()
+
 
     def update(self):
         pass
@@ -53,36 +56,85 @@ class PipelineGuiManager(DebugObject):
         self.showbase.accept("g", self._toggleGUI)
         self.currentGUIEffect = None
 
-        # self._toggleGUI()
     def _initSettings(self):
+        """ Inits all debugging settings """
+
         currentY = 10
 
         # Render Modes
         self.renderModes = CheckboxCollection()
 
-        modes = [
-            ("Default", "rm_Default"),
-            ("Metallic", "rm_Metallic"),
-            ("BaseColor", "rm_BaseColor"),
-            ("Roughness", "rm_Roughness"),
-            ("Specular", "rm_Specular"),
-            ("Normal", "rm_Normal"),
-            ("Occlusion", "rm_Occlusion"),
-            ("Lighting", "rm_Lighting"),
-            ("Scattering", "rm_Scattering"),
-            ("G-Illum", "rm_GI"),
-        ]
+        # Handle to the settings
+        s = self.pipeline.settings
 
-        features = [
-            ("Occlusion", "ft_OCCLUSION"),
-            ("Motion Blur", "ft_MOTIONBLUR"),
-            ("Anti-Aliasing", "ft_ANTIALIASING"),
-            ("Shadows", "ft_SHADOWS"),
-            ("Color Correction", "ft_COLOR_CORRECTION"),
-            ("Blur Occlusion", "ft_BLUR_OCCLUSION"),
-            ("Scattering", "ft_SCATTERING"),
-            ("G-Illum", "ft_GI"),
-        ]
+        modes = []
+        features = []
+
+        register_mode = lambda name, mid: modes.append((name, mid))
+        register_feature = lambda name, fid: features.append((name, fid))
+
+        register_mode("Default", "rm_Default")
+        register_mode("Metallic", "rm_Metallic")
+        register_mode("BaseColor", "rm_BaseColor")
+        register_mode("Roughness", "rm_Roughness")
+        register_mode("Specular", "rm_Specular")
+        register_mode("Normal", "rm_Normal")
+
+        if s.occlusionTechnique != "None":
+            register_mode("Occlusion", "rm_Occlusion")
+            register_feature("Occlusion", "ft_OCCLUSION")
+
+
+        register_feature("Upscale Blur", "ft_UPSCALE_BLUR")
+
+        register_mode("Lighting", "rm_Lighting")
+        register_mode("Raw-Lighting", "rm_Diffuse_Lighting")
+
+        if s.enableScattering:
+            register_mode("Scattering", "rm_Scattering")
+            register_feature("Scattering", "ft_SCATTERING")
+
+        if s.enableGlobalIllumination:
+            register_mode("GI-Diffuse", "rm_GI_DIFFUSE")
+            register_mode("GI-Ambient", "rm_GI_AMBIENT")
+            register_mode("GI-Specular", "rm_GI_REFLECTIONS")
+            register_feature("G-Illum", "ft_GI")
+
+        register_mode("Ambient", "rm_Ambient")
+        register_feature("Ambient", "ft_AMBIENT")
+
+        if s.motionBlurEnabled:
+            register_feature("Motion Blur", "ft_MOTIONBLUR")
+
+        if s.antialiasingTechnique != "None":
+            register_feature("Anti-Aliasing", "ft_ANTIALIASING")
+
+        register_feature("Shadows", "ft_SHADOWS")
+        register_feature("Correct color", "ft_COLOR_CORRECTION")
+        
+        if s.renderShadows:
+            register_mode("PSSM Splits", "rm_PSSM_SPLITS")
+            register_mode("Shadowing", "rm_SHADOWS")
+            
+            if s.usePCSS:
+                register_feature("PCSS", "ft_PCSS")
+
+            register_feature("PCF", "ft_PCF")
+
+        register_feature("Env. Filtering", "ft_FILTER_ENVIRONMENT")
+        register_feature("PBS", "ft_COMPLEX_LIGHTING")
+
+        # register_mode("h Debug", "rm_SSaLR")
+
+        if s.enableSSLR:
+            register_feature("SSLR", "ft_SSLR")
+
+
+        if s.useTransparency:
+            register_feature("Transparency", "ft_TRANSPARENCY")
+
+        # register_mode("Shadow Load", "rm_SHADOW_COMPUTATIONS")
+        # register_mode("Lights Load", "rm_LIGHT_COMPUTATIONS")
 
         self.renderModesTitle = BetterOnscreenText(text="Render Mode",
                                                    x=20, y=currentY,
@@ -124,35 +176,118 @@ class PipelineGuiManager(DebugObject):
                 currentY += 25
 
         self.demoSlider = BetterSlider(
-            x=20, y=currentY, size=230, parent=self.debuggerContent)
+            x=20, y=currentY+20, size=230, parent=self.debuggerContent)
+
+        self.demoText = BetterOnscreenText(x=20, y=currentY,
+                                       text="Sun Position", align="left", parent=self.debuggerContent,
+                                       size=15, color=Vec3(1.0))
+
+        currentY += 70
+
+
+        if s.enableGlobalIllumination and self.enableGISliders:
+
+            self.slider_opts = {
+                "ao_cone_height": {
+                    "name": "AO Cone Height",
+                    "min": 0.0001,
+                    "max": 4.0,
+                    "default": 0.5,
+                },
+                "ao_step_ratio": {
+                    "name": "AO Step Ratio",
+                    "min": 1.0,
+                    "max": 2.5,
+                    "default": 1.1,
+                },
+                "ao_cone_ratio": {
+                    "name": "AO Cone Ratio",
+                    "min": 0.00001,
+                    "max": 2.5,
+                    "default": 1.1,
+                },
+                "ao_start_distance": {
+                    "name": "AO Start Offset",
+                    "min": -2.0,
+                    "max": 2.0,
+                    "default": 0.5,
+                },
+                "ao_initial_radius": {
+                    "name": "AO Initial Cone Radius",
+                    "min": 0.0001,
+                    "max": 5.0,
+                    "default": 1.2,
+                },
+
+            }
+
+           
+
+            for name, opts in self.slider_opts.iteritems():
+                opts["slider"] = BetterSlider(
+                    x=20, y=currentY+20, size=230, minValue=opts["min"],maxValue=opts["max"], value=opts["default"], parent=self.debuggerContent, callback=self._optsChanged)
+
+                opts["label"] = BetterOnscreenText(x=20, y=currentY,
+                                               text=opts["name"], align="left", parent=self.debuggerContent,
+                                               size=15, color=Vec3(1.0))
+
+                opts["value_label"] = BetterOnscreenText(x=250, y=currentY,
+                                               text=str(opts["default"]), align="right", parent=self.debuggerContent,
+                                               size=15, color=Vec3(0.6),mayChange=True)
+                currentY += 50
 
         self.initialized = True
+            
+    def onPipelineLoaded(self):
+
+        if self.pipeline.settings.enableGlobalIllumination and self.enableGISliders:
+            self._optsChanged()
+
+    def _optsChanged(self):
+
+        if not self.enableGISliders:
+            return
+
+        container = self.pipeline.giPrecomputeBuffer
+
+        for name, opt in self.slider_opts.iteritems():
+            container.setShaderInput("opt_" + name, opt["slider"].getValue())
+            opt["value_label"].setText("{:0.4f}".format(opt["slider"].getValue()))
+        
 
     def _updateSetting(self, status, name, updateWhenFalse=False):
         # Render Modes
-        if name.startswith("rm_"):
-            modeId = "RM_" + name[3:].upper()
-            self.defines[modeId] = 1 if status else 0
 
-        elif name.startswith("ft_"):
-            # instead of enabling per feature, we disable per feature
-            modeId = "DISABLE_" + name[3:].upper()
-            self.defines[modeId] = 0 if status else 1
+        if hasattr(self.pipeline, "renderPassManager"):
 
-        if self.initialized and (status is True or updateWhenFalse):
-            self.pipeline._generateShaderConfiguration()
-            self.pipeline.reloadShaders()
+            define = lambda key, val: self.pipeline.getRenderPassManager().registerDefine(key, val)
+            undefine = lambda key: self.pipeline.getRenderPassManager().unregisterDefine(key)
 
-    def getDefines(self):
-        result = []
+            if name.startswith("rm_"):
+                modeId = "DEBUG_RM_" + name[3:].upper()
 
-        for key, val in self.defines.items():
-            # print key, val
-            if val:
-                result.append(("DEBUG_" + key, val))
+                if status:
+                    define(modeId, 1)
+                else:
+                    undefine(modeId)
 
-        # print result
-        return result
+                if name == "rm_Default":
+                    undefine("DEBUG_VISUALIZATION_ACTIVE")
+                else:
+                    define("DEBUG_VISUALIZATION_ACTIVE", 1)
+
+            elif name.startswith("ft_"):
+                # instead of enabling per feature, we disable per feature
+                modeId = "DEBUG_DISABLE_" + name[3:].upper()
+
+                if status:
+                    undefine(modeId)
+                else:
+                    define(modeId, 1)
+
+            if self.initialized and (status is True or updateWhenFalse):
+                self.pipeline.reloadShaders()
+                # pass
 
     def _toggleGUI(self):
         self.debug("Toggle overlay")
@@ -178,6 +313,9 @@ class PipelineGuiManager(DebugObject):
                 )
             )
             self.currentGUIEffect.start()
+
+            # self.watermark.hide()
+            # self.showDebugger.hide()
 
         else:
             # hide debugger

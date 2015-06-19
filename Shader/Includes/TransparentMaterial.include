@@ -1,0 +1,69 @@
+#pragma once
+
+#pragma include "Includes/Structures/TransparentMaterial.struct"
+
+
+#define USE_UINT_PACKING 0
+
+
+TransparentMaterial getDefaultTransparentMaterial() {
+    TransparentMaterial tm;
+    tm.color = vec3(1);
+    tm.materialType = 0;
+    tm.normal = vec3(0,0,1);
+    tm.depth = 1.0;
+    tm.alpha = 1.0;
+    tm.nextEntry = 0u;
+    return tm;
+}
+
+
+vec3 decodeNormal(vec3 enc)
+{
+    // return enc;
+    vec4 nn = vec4(enc.xy, 0, 0)*vec4(2,2,0,0) + vec4(-1,-1,1,-1);
+    float l = dot(nn.xyz,-nn.xyw);
+    nn.z = -l;
+    nn.xy *= sqrt(l);
+    return nn.xyz * 2 + vec3(0,0,1);
+}
+
+TransparentMaterial unpackTransparentMaterial(uvec4 data) {
+
+    TransparentMaterial tm;
+
+    tm.nextEntry = data.w;
+
+
+    vec4 unpacked1 = unpackSnorm4x8(data.x);
+    vec4 unpacked2 = unpackSnorm4x8(data.y);
+
+    tm.color = unpacked1.rgb;
+    tm.materialType = uint(unpacked1.w);
+    tm.normal = normalize(unpacked2.rgb);
+    tm.alpha = unpacked2.w;
+
+    #if defined(USE_UINT_PACKING)
+        tm.depth = float(data.z) / 0xFFFFFFFF;
+    #else
+        tm.depth = uintBitsToFloat(data.z);
+    #endif
+    return tm;
+}
+
+
+
+float extractMaterialDepth(uvec4 data) {
+
+    #if defined(USE_UINT_PACKING)
+        return float(data.z) / 0xFFFFFFFF;
+    #else
+        return uintBitsToFloat(data.z);
+    #endif    
+}
+
+
+
+// uint extractMaterialNextPointer(uint position) {
+//     return imageLoad(materialDataBuffer, int(position)).w;
+// }

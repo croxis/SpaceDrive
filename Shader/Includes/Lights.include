@@ -1,0 +1,99 @@
+#pragma once
+
+#pragma include "Includes/Configuration.include"
+#pragma include "Includes/IESProfiles.include"
+#pragma include "Includes/Lighting.include"
+
+
+#if !defined(UNSHADOWED_PASS)
+    #pragma include "Includes/Shadows.include"
+
+    uniform samplerCube directionToFace;
+#endif
+
+
+
+vec3 applyPointLight(Light light, Material material) {
+
+    float distanceToLight = distance(material.position, light.position);   
+    float distanceRelative = distanceToLight / light.radius; 
+    float attenuation = computePointLightAttenuation(light, distanceToLight);
+
+    vec3  l = normalize(light.position - material.position);
+    vec3  v = normalize(cameraPosition - material.position);
+    vec3  n = normalize(material.normal);
+    vec3  h = normalize(l + v);
+    float shadowFactor = 1.0;
+
+    #if !defined(UNSHADOWED_PASS)
+        // We decide which shadow map to sample using a simple lookup cubemap
+        int faceIndex = int( textureLod(directionToFace, l, 0).r * 5.0);        
+        int shadowSourceIndex = light.sourceIndexes[faceIndex];
+        ShadowSource currentSource = shadowSources[shadowSourceIndex]; 
+        shadowFactor = computeShadowsForSource(currentSource, material, n, l, 0.2, 0.001, 0.0015);
+    #endif
+
+    return computeLightModel(light, material, l,v, n, h, attenuation, shadowFactor);
+}
+
+
+vec3 applyDirectionalLight(Light light, Material material) {
+
+    float distanceToLight = distance(material.position, light.position);   
+    float distanceRelative = distanceToLight / light.radius; 
+    float attenuation = 1.0;
+
+    vec3  l = light.direction;
+    vec3  v = normalize(cameraPosition - material.position);
+    vec3  n = normalize(material.normal);
+    vec3  h = normalize(l + v);
+    float shadowFactor = 1.0;
+
+    #if !defined(UNSHADOWED_PASS)
+        int map_used = 0;
+        shadowFactor = computePSSMShadowsForLight(light, material.position, n, l, 40.0, 60.0, 0.015, map_used);
+    #endif
+
+
+    return computeLightModel(light, material, l, v, n, h, attenuation, shadowFactor);
+}
+
+
+vec3 applySpotLight(Light light, Material material) {
+
+    float distanceToLight = distance(material.position, light.position);   
+    float distanceRelative = distanceToLight / light.radius; 
+
+    vec3  l = normalize(light.position - material.position);
+    vec3  v = normalize(cameraPosition - material.position);
+    vec3  n = normalize(material.normal);
+    vec3  h = normalize(l + v);
+
+    vec4 transformedPoint = light.mvp * vec4(material.position, 1);
+    vec3 transformedCoord = (transformedPoint.xyz / transformedPoint.w) * 0.5 + 0.5;
+
+    float visibilityFactor = 0.0;
+
+    if (transformedCoord.x > 0.01 && transformedCoord.y > 0.01 && transformedCoord.x < 0.99 && 
+        transformedCoord.y < 0.99 && transformedPoint.w > 0.0) {
+        visibilityFactor = 1.0;
+    }
+
+
+    // return vec3(visibilityFactor);
+    float shadowFactor = 1.0;
+
+    #if !defined(UNSHADOWED_PASS)
+        int shadowSourceIndex = light.sourceIndexes[0];
+        ShadowSource currentSource = shadowSources[shadowSourceIndex]; 
+        shadowFactor = computeShadowsForSource(currentSource, material, n, l, 0.01, 0.01, 0.003);
+        // shadowFactor = pcfKernel(currentSource, transformedCoord, 0.0, vec2(0.0001));
+    #endif
+
+    float radialFactor = saturate(distance(transformedCoord.xy, vec2(0.5)) * 2.0);
+    float attenuation = 1.0 - radialFactor;
+    vec3 iesColor = computeIESProfile(light.iesProfile, radialFactor, distanceRelative);
+    // return vec3(1.0 - shadowFactor);
+    return computeLightModel(light,material, l,v, n, h, attenuation, shadowFactor) * visibilityFactor * iesColor;
+}
+

@@ -1,0 +1,76 @@
+#version 410
+
+#pragma include "Includes/Configuration.include"
+#pragma include "Includes/PoissonDisk.include"
+
+#extension GL_ARB_shader_image_load_store : enable
+#extension GL_ARB_shader_image_size : enable
+
+in vec4 materialColor;
+in vec3 normalWorld;
+in vec4 positionWorld;
+in vec2 texcoord;
+
+uniform sampler2D p3d_Texture0;
+
+uniform vec3 giVoxelGridStart;
+uniform vec3 giVoxelGridEnd;
+uniform vec3 giLightDirection;
+uniform vec2 giLightUVStart;
+uniform float giLightUVSize;
+
+uniform mat4 giLightMVP;
+uniform sampler2D shadowAtlas;
+
+uniform layout(r32ui) uimage3D giVoxelGenerationTex;
+out vec4 result;
+
+void main() {
+
+    // Convert world position to voxel grid position
+    vec3 voxelSpacePos = (positionWorld.xyz-giVoxelGridStart) / (giVoxelGridEnd - giVoxelGridStart);
+
+    // Convert voxel position to integer coordinates
+    ivec3 voxelCoords = ivec3(voxelSpacePos * imageSize(giVoxelGenerationTex));
+
+    // Project world position to shadow map space
+    vec4 projCoord = giLightMVP * vec4(positionWorld.xyz, 1);
+    projCoord.xyz = (projCoord.xyz / projCoord.w * 0.5) + 0.5;
+
+    // Convert shadow map space to shadow atlas space
+    vec2 convertedCoord = projCoord.xy * giLightUVSize + giLightUVStart;
+
+    // Filter shadow map
+    float pixelSize = 1.0 / SHADOW_MAP_ATLAS_SIZE;
+    float kernelRadius = 1.0;
+    float shadowSum = 0.0;
+    const int voxelShadowSamples = 16;
+    for (int i = 0; i < voxelShadowSamples; i++) {
+        float sampledDepth = texture(shadowAtlas, convertedCoord.xy + poissonDisk64[i] * pixelSize * kernelRadius).x;
+        shadowSum += step(sampledDepth, projCoord.z - 0.0001);
+    }
+    shadowSum /= voxelShadowSamples;   
+    // shadowSum = 0.0;
+
+    // Sample and process the color texture
+    vec4 colorSample = textureLod(p3d_Texture0, texcoord, 0);
+    vec3 diffuse = pow(colorSample.xyz, vec3(1.0 / 2.2)) * materialColor.xyz;
+    // diffuse = vec3(1);
+    // if (colorSample.a < 0.5) discard;
+
+    // Compute lighting based on diffuse color and shadow factor
+    float shadowAmbientFactor = 0.0;
+    float shadowFactor = max(shadowAmbientFactor, 1.0 - shadowSum);
+    vec3 diffuseContribution = diffuse * shadowFactor * saturate(dot(giLightDirection, normalWorld));
+    // diffuseContribution += vec3(0.2, 0.6, 1.0) * 0.1;
+
+    // Pack everything into a single uint
+    uint packedColor = packUnorm4x8(vec4(0.0, saturate(diffuseContribution)));
+
+    // Store the data, we use atomic max because that provides the best resulst
+    imageAtomicMax(giVoxelGenerationTex, voxelCoords, packedColor);
+    // imageAtomicOr(giVoxelGenerationTex, voxelCoords, packedColor);
+    // imageStore(giVoxelGenerationTex, voxelCoords, ivec4(packedColor));
+
+    result = vec4(diffuseContribution, 1);
+}

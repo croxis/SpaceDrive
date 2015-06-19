@@ -38,6 +38,7 @@ class App(ShowBase):
         # Now create the pipeline
         self.renderPipeline.create()
 
+
         # At this point we are done with the initialization. Now you want to
         # load your scene, and create the game logic. 
 

@@ -1,86 +1,48 @@
 
-import math
-import os
 
-from panda3d.core import TransparencyAttrib, Texture, NodePath, PTAInt
-from panda3d.core import Mat4, CSYupRight, TransformState, CSZupRight
-from panda3d.core import PTAFloat, PTALMatrix4f, UnalignedLMatrix4f, LVecBase2i
-from panda3d.core import PTAVecBase3f, WindowProperties, Vec4, Vec2, PTAVecBase2f
+from panda3d.core import NodePath, Shader, Vec4, TransparencyAttrib, LVecBase2i
+from panda3d.core import PTAVecBase3f, PTAFloat, PTALMatrix4f, PTAInt, SamplerState
+from panda3d.core import CSYupRight, TransformState, Mat4, CSZupRight, BitMask32
+from panda3d.core import Texture, UnalignedLMatrix4f, Vec3, PTAFloat, TextureStage
 
-from direct.stdpy.file import open
-
-from LightManager import LightManager
-from RenderTarget import RenderTarget
 from DebugObject import DebugObject
-from BetterShader import BetterShader
-from GlobalIllumination import GlobalIllumnination
-from Antialiasing import *
-from AmbientOcclusion import *
-from PipelineSettingsManager import PipelineSettingsManager
-from GUI.PipelineGuiManager import PipelineGuiManager
-from Globals import Globals
-from SystemAnalyzer import SystemAnalyzer
 from MountManager import MountManager
+from PipelineSettingsManager import PipelineSettingsManager
+from SystemAnalyzer import SystemAnalyzer
+from Globals import Globals
+from RenderPassManager import RenderPassManager
+from LightManager import LightManager
+from AmbientOcclusionManager import AmbientOcclusionManager
+from GlobalIllumination import GlobalIllumination
+from AntialiasingManager import AntialiasingManager
+from Scattering import Scattering
+from TransparencyManager import TransparencyManager
+
+from GUI.PipelineGuiManager import PipelineGuiManager
+
+from RenderPasses.InitialRenderPass import InitialRenderPass
+from RenderPasses.DeferredScenePass import DeferredScenePass
+from RenderPasses.ViewSpacePass import ViewSpacePass
+from RenderPasses.LightingPass import LightingPass
+from RenderPasses.DynamicExposurePass import DynamicExposurePass
+from RenderPasses.FinalPostprocessPass import FinalPostprocessPass
+from RenderPasses.VolumetricLightingPass import VolumetricLightingPass
 
 
 class RenderingPipeline(DebugObject):
 
-    """ This is the core class, driving all other classes. To use this
-    pipeline, your code has to call this *after* the initialization of ShowBase:
-
-        renderPipeline = RenderingPipeline()
-        renderPipeline.loadSettings("pipeline.ini")
-        renderPipeline.create()
-
-    The pipeline will setup all required buffers, tasks and shaders itself. To
-    add lights, see the documentation of LightManager.
-
-    How it works:
-
-    You can see an example buffer view at http://i.imgur.com/mZK6TVj.png
-
-    The pipeline first renders all normal objects (parented to render) into a
-    buffer, using multiple render targets. These buffers store normals,
-    position and material properties. Your shaders have to output these
-    values, but there is a handy api, just look at
-    Shaders/DefaultObjectShader.fragment.
-
-    After that, the pipeline splits the screen into tiles, typically of the
-    size 32x32. For each tile, it computes which lights affect which tile,
-    called Tiled Deferred Shading. This is written to a buffer.
-
-    The next step is applying the lighting. This is done at half window
-    resolution only, using Temporal Reprojection. I don't aim to explain
-    Temporal Reprojection here, but basically, I render only each second
-    pixel each frame. This is simply for performance.
-
-    The lighting pass iterates through the list of lights per tile, and
-    applies both lighting and shadows to each pixel, using the material
-    information from the previous rendered buffers.
-
-    After the lighting pass, a combiner pass combines both the current
-    frame and the last frame, this is required because of
-    Temporal Reprojection.
-
-    At this step, we already have a frame we could display. In the next passes,
-    only anti-aliasing and post-processing effects like motion blur are added.
-
-    In the meantime, the LightManager builds a list of ShadowSources which
-    need an update. It creates a scene render and renders the scene from the
-    view of the shadow sources to the global shadow atlas. There are a limited
-    amount of shadow updates per frame available, and the updates are stored
-    in a queue. So when displaying many shadow-lights, not each shadowmap is
-    update each frame. The reason is, again, performance. When you need a
-    custom shadow caster shader, e.g. for alpha blending, you should use the
-    Shader/DefaultShaowCaster.* as prefab.
-
+    """ This is the main rendering pipeline module. It setups the whole pipeline
+    process, as well as creating the managers for the different effects/passes.
+    It also handles some functions to prepare the scene, e.g. for tesselation.
     """
+
 
     def __init__(self, showbase):
         """ Creates a new pipeline """
         DebugObject.__init__(self, "RenderingPipeline")
         self.showbase = showbase
         self.settings = None
+        self.ready = False
         self.mountManager = MountManager()
 
     def getMountManager(self):
@@ -93,12 +55,310 @@ class RenderingPipeline(DebugObject):
         self.settings = PipelineSettingsManager()
         self.settings.loadFromFile(filename)
 
+        # This has to be here, before anything is printed
+        DebugObject.setOutputLevel(self.settings.pipelineOutputLevel)
+
     def getSettings(self):
         """ Returns the current pipeline settings """
         return self.settings
 
+    def addLight(self, light):
+        """ Attaches a new light to the pipeline, this just forwards the call to
+        the light manager. """
+        self.lightManager.addLight(light)
+
+    def removeLight(self, light):
+        """ Removes a light from the pipeline, this just forwards the call to
+        the light manager. """
+        self.lightManager.removeLight(light)
+
+    def onSceneInitialized(self):
+        """ Tells the pipeline that the scene is ready to be rendered. This starts
+        shadow updates """
+        self.ready = True
+
+    def setGILightSource(self, lightSource):
+        """ Sets the light used to compute GI. For now, only directional lights
+        can cast GI. """
+        if self.settings.enableGlobalIllumination:
+            self.globalIllum.setTargetLight(lightSource)
+
+    def getMainPassBitmask(self):
+        """ Returns the camera bit used to render the main scene """
+        return BitMask32.bit(2)
+
+    def getShadowPassBitmask(self):
+        """ Returns the camera bit used to render the shadow scene """
+        return BitMask32.bit(3)
+
+    def getVoxelizePassBitmask(self):
+        """ Returns the camera bit used to voxelize the scene for GI """
+        return BitMask32.bit(4)
+
+    def fillTextureStages(self, nodePath):
+        """ Prepares all materials of a given nodepath to have at least the 4 
+        default textures in the correct order: [diffuse, normal, specular, roughness] """
+        
+        emptyDiffuseTex = loader.loadTexture("Data/Textures/EmptyDiffuseTexture.png")
+        emptyNormalTex = loader.loadTexture("Data/Textures/EmptyNormalTexture.png")
+        emptySpecularTex = loader.loadTexture("Data/Textures/EmptySpecularTexture.png")
+        emptyRoughnessTex = loader.loadTexture("Data/Textures/EmptyRoughnessTexture.png")
+
+        textureOrder = [emptyDiffuseTex, emptyNormalTex, emptySpecularTex, emptyRoughnessTex]
+        textureSorts = [0, 10, 20, 30]
+
+        # Prepare the textures
+        for tex in textureOrder:
+            tex.setMinfilter(SamplerState.FTLinear)
+            tex.setMagfilter(SamplerState.FTLinear)
+            tex.setFormat(Texture.FRgba)
+
+        # Iterate over all geom nodes
+        for np in nodePath.findAllMatches("**/+GeomNode"):
+
+            # Check how many texture stages the nodepath already has
+            stages = np.findAllTextureStages()
+            numStages = len(stages)
+
+            # Fill the texture stages up
+            for i in xrange(numStages, 4):
+                stage = TextureStage("DefaultTexStage" + str(i))
+                stage.setSort(textureSorts[i])
+                stage.setMode(TextureStage.CMModulate)
+                stage.setColor(Vec4(0, 0, 0, 1))
+                np.setTexture(stage, textureOrder[i])
+
+            # self.debug(np,"has",numStages,"stages, filled up the rest")
+
+    def getDefaultTransparencyShader(self):
+        """ Returns the default shader to render transparent objects. """
+        if not self.settings.useTransparency:
+            raise Exception("Transparency is disabled. You cannot fetch the transparency shader.")
+        return self.transparencyManager.getDefaultShader()
+
+    def prepareTransparentObject(self, np):
+        """ Prepares a transparent object, this should be called on every transparent
+        object """
+        np.setTag("ShadowPassShader", "Transparent")
+
+    def getDefaultSkybox(self, scale=40000):
+        """ Loads the default skybox, scaling it by the given scale factor. Note
+        that there should always be a noticeable difference between the skybox
+        scale and the camera far plane, to avoid z-fighting issues. The default
+        skybox also comes with a default skybox shader aswell as a default skybox
+        texture. The shaders and textures can be overridden by the user if required. """
+        skybox = loader.loadModel("Models/Skybox/Model.egg.bam")
+        skybox.setScale(scale)
+
+        skytex = loader.loadTexture("Data/Skybox/sky.jpg")
+        skytex.setWrapU(SamplerState.WMRepeat)
+        skytex.setWrapV(SamplerState.WMRepeat)
+        skytex.setMinfilter(SamplerState.FTLinear)
+        skytex.setMagfilter(SamplerState.FTLinear)
+        skybox.setShaderInput("skytex", skytex)
+        skybox.setShader(Shader.load(Shader.SLGLSL, 
+                "Shader/DefaultShaders/Opaque/vertex.glsl", 
+                "Shader/Skybox/fragment.glsl"), 70)
+        skybox.setName("Skybox")
+        return skybox
+
+    def reloadShaders(self):
+        """ Reloads all shaders and regenerates all intitial states. This function
+        also updates the shader autoconfig """
+        self.debug("Reloading shaders")
+        self.renderPassManager.writeAutoconfig()
+        self.renderPassManager.setShaders()
+
+        # todo: gi -> reload shaders
+
+
+
+    def getRenderPassManager(self):
+        """ Returns a handle to the render pass manager attribute """
+        return self.renderPassManager
+
+    def getSize(self):
+        """ Returns the window size """
+        return self._size
+
+    def _createTasks(self):
+        """ Spanws the pipeline update tasks, this are mainly the pre-render
+        and post-render tasks, whereas the pre-render task has a lower priority
+        than the draw task, and the post-render task has a higher priority. """
+        self.showbase.addTask(self._preRenderUpdate, "RP_BeforeRender", sort=-5000)
+        self.showbase.addTask(self._postRenderUpdate, "RP_AfterRender", sort=5000)
+
+    def _createInputHandles(self):
+        """ Defines various inputs to be used in the shader passes. Most inputs
+        use pta-arrays, so updating them is faster than using setShaderInput all the
+        time. """
+        self.cameraPosition = PTAVecBase3f.emptyArray(1)
+        self.currentViewMat = PTALMatrix4f.emptyArray(1)
+        self.lastMVP = PTALMatrix4f.emptyArray(1)
+        self.currentMVP = PTALMatrix4f.emptyArray(1)
+        self.frameIndex = PTAInt.emptyArray(1)
+        self.frameDelta = PTAFloat.emptyArray(1)
+
+        self.renderPassManager.registerStaticVariable("lastMVP", self.lastMVP)
+        self.renderPassManager.registerStaticVariable("currentMVP", self.currentMVP)
+        self.renderPassManager.registerStaticVariable("frameIndex", self.frameIndex)
+        self.renderPassManager.registerStaticVariable("cameraPosition", self.cameraPosition)
+        self.renderPassManager.registerStaticVariable("mainCam", self.showbase.cam)
+        self.renderPassManager.registerStaticVariable("mainRender", self.showbase.render)
+        self.renderPassManager.registerStaticVariable("frameDelta", self.frameDelta)
+        self.renderPassManager.registerStaticVariable("currentViewMat", self.currentViewMat)
+
+        # self.transformMat = TransformState.makeMat(Mat4.convertMat(Globals.base.win.getGsg().getInternalCoordinateSystem(), CSZupRight))
+        self.transformMat = TransformState.makeMat(Mat4.convertMat(CSYupRight, CSZupRight))
+
+
+    def _preRenderUpdate(self, task):
+        """ This is the pre render task which handles updating of all the managers
+        as well as calling the pipeline update task """
+        if not self.ready:
+            return task.cont
+        self._updateInputHandles()
+        self.lightManager.update()
+        if self.guiManager:
+            self.guiManager.update()
+        if self.transparencyManager:
+            self.transparencyManager.update()
+        self.antialiasingManager.update()
+        self.renderPassManager.preRenderUpdate()
+        if self.globalIllum:
+            self.globalIllum.update()
+        return task.cont
+
+    def _updateInputHandles(self):
+        """ Updates the input-handles on a per frame basis defined in 
+        _createInputHandles """
+        # Compute camera bounds
+        cameraBounds = self.showbase.camNode.getLens().makeBounds()
+        cameraBounds.xform(self.showbase.camera.getMat(self.showbase.render))
+        self.lightManager.setCullBounds(cameraBounds)
+
+        self.lastMVP[0] = self.currentMVP[0]
+        self.currentMVP[0] = self._computeMVP()
+        self.currentViewMat[0] = UnalignedLMatrix4f(self.transformMat.invertCompose(self.showbase.render.getTransform(self.showbase.cam)).getMat())
+        self.frameDelta[0] = Globals.clock.getDt()
+        self.cameraPosition[0] = self.showbase.cam.getPos(self.showbase.render)
+
+    def _computeMVP(self):
+        """ Computes the current scene mvp. Actually, this is the
+        worldViewProjectionMatrix, but for convience it's called mvp. """
+        camLens = self.showbase.camLens
+        projMat = camLens.getProjectionMat()
+        modelViewMat = self.showbase.render.getTransform(self.showbase.cam).getMat()
+        return UnalignedLMatrix4f(modelViewMat * projMat)
+
+    def _postRenderUpdate(self, task):
+        """ This is the post render update, being called after the draw task. """
+        if not self.ready:
+            return task.cont
+        return task.cont
+
+    def _createViewSpacePass(self):
+        """ Creates a pass which computes the view space normals and position.
+        This pass is only created if any render pass requires the provided
+        inputs """
+        if self.renderPassManager.anyPassRequires("ViewSpacePass.normals") or \
+            self.renderPassManager.anyPassRequires("ViewSpacePass.position"):
+            self.viewSpacePass = ViewSpacePass()
+            self.renderPassManager.registerPass(self.viewSpacePass)
+
+    def _createDefaultTextureInputs(self):
+        """ This method loads various textures used in the different render passes
+        and provides them as inputs to the render pass manager """
+        for color in ["White", "Black"]:
+            emptyTex = loader.loadTexture("Data/Textures/" + color + ".png")
+            emptyTex.setMinfilter(SamplerState.FTLinear)
+            emptyTex.setMagfilter(SamplerState.FTLinear)
+            emptyTex.setWrapU(SamplerState.WMClamp)
+            emptyTex.setWrapV(SamplerState.WMClamp)
+            self.renderPassManager.registerStaticVariable("emptyTexture" + color, emptyTex)
+
+        texNoise = loader.loadTexture("Data/Textures/noise4x4.png")
+        texNoise.setMinfilter(SamplerState.FTNearest)
+        texNoise.setMagfilter(SamplerState.FTNearest)
+        self.renderPassManager.registerStaticVariable("noise4x4", texNoise)
+
+        # Load the cubemap which is used for point light shadow rendering
+        cubemapLookup = self.showbase.loader.loadCubeMap(
+            "Data/Cubemaps/DirectionLookup/#.png")
+        cubemapLookup.setMinfilter(SamplerState.FTNearest)
+        cubemapLookup.setMagfilter(SamplerState.FTNearest)
+        cubemapLookup.setFormat(Texture.FRgb8)
+        self.renderPassManager.registerStaticVariable("directionToFaceLookup", 
+            cubemapLookup)
+
+        # Load the default environment cubemap
+        cubemapEnv = self.showbase.loader.loadCubeMap(
+            self.settings.defaultReflectionCubemap, readMipmaps=True)
+        cubemapEnv.setMinfilter(SamplerState.FTLinearMipmapLinear)
+        cubemapEnv.setMagfilter(SamplerState.FTLinearMipmapLinear)
+        cubemapEnv.setFormat(Texture.FRgba)
+        self.renderPassManager.registerStaticVariable("defaultEnvironmentCubemap", 
+            cubemapEnv)
+        self.renderPassManager.registerStaticVariable("defaultEnvironmentCubemapMipmaps", 
+            cubemapEnv.getExpectedNumMipmapLevels())
+
+        # Load the color LUT
+        colorLUT = loader.loadTexture("Data/ColorLUT/" + self.settings.colorLookupTable)
+        colorLUT.setWrapU(SamplerState.WMClamp)
+        colorLUT.setWrapV(SamplerState.WMClamp)
+        colorLUT.setFormat(Texture.F_rgb16)
+        colorLUT.setMinfilter(SamplerState.FTLinear)
+        colorLUT.setMagfilter(SamplerState.FTLinear)
+        self.renderPassManager.registerStaticVariable("colorLUT", colorLUT)
+
+    def _createGenericDefines(self):
+        """ Registers some of the configuration defines, mainly specified in the
+        pipeline config, at the render pass manager """
+        define = lambda name, val: self.renderPassManager.registerDefine(name, val)
+        define("WINDOW_WIDTH", self._size.x)
+        define("WINDOW_HEIGHT", self._size.y)
+
+        if self.settings.displayOnscreenDebugger:
+            define("DEBUGGER_ACTIVE", 1)
+
+        if self.settings.enableGlobalIllumination:
+            define("USE_GLOBAL_ILLUMINATION", 1)
+
+        # TODO: Move to scattering module
+        if self.settings.enableScattering:
+            define("USE_SCATTERING", 1)
+
+        # TODO: Add sslr
+        # if self.settings.enableSSLR:
+        #     define("USE_SSLR", 1)
+
+        # Pass camera near and far plane
+        define("CAMERA_NEAR", Globals.base.camLens.getNear())
+        define("CAMERA_FAR", Globals.base.camLens.getFar())
+
+    def _createGlobalIllum(self):
+        """ Creates the global illumination manager if enabled in the settings """
+        if self.settings.enableGlobalIllumination:
+            self.globalIllum = GlobalIllumination(self)
+            self.globalIllum.setup()
+        else:
+            self.globalIllum = None
+
+    def _precomputeScattering(self):
+        """ Precomputes the scattering model for the default atmosphere if
+        if specified in the settings """
+        if self.settings.enableScattering:
+            earthScattering = Scattering(self)
+            scale = 100000
+            earthScattering.setSettings({
+                "atmosphereOffset": Vec3(0, 0, - (6360.0 + 9.5) * scale),
+                "atmosphereScale": Vec3(scale)
+            })
+            earthScattering.precompute()
+            earthScattering.provideInputs()
+
     def create(self):
-        """ Creates this pipeline """
+        """ Creates the pipeline """
 
         self.debug("Setting up render pipeline")
 
@@ -106,16 +366,16 @@ class RenderingPipeline(DebugObject):
             self.error("You have to call loadSettings first!")
             return
 
-        self.debug("Analyzing system ..")
-        SystemAnalyzer.analyze()
-
-
         self.debug("Checking required Panda3D version ..")
-        SystemAnalyzer.checkPandaVersionOutOfDate(7,8,2014)
-
+        SystemAnalyzer.checkPandaVersionOutOfDate(29,04,2015)
 
         # Mount everything first
         self.mountManager.mount()
+
+        # Check if there is already another instance running
+        if not self.mountManager.getLock():
+            self.fatal("Another instance of the rendering pipeline is already running")
+            return
 
         # Store globals, as cython can't handle them
         self.debug("Setting up globals")
@@ -123,917 +383,89 @@ class RenderingPipeline(DebugObject):
         Globals.font = loader.loadFont("Data/Font/SourceSansPro-Semibold.otf")
         Globals.font.setPixelsPerUnit(25)
 
-        # Setting up shader loading
-        BetterShader._DumpShaders = self.settings.dumpGeneratedShaders
+        self._size = LVecBase2i(self.showbase.win.getXSize(), self.showbase.win.getYSize())
 
-        # We use PTA's for shader inputs, because that's faster than
-        # using setShaderInput
-        self.temporalProjXOffs = PTAInt.emptyArray(1)
-        self.cameraPosition = PTAVecBase3f.emptyArray(1)
-        self.motionBlurFactor = PTAFloat.emptyArray(1)
-        self.lastMVP = PTALMatrix4f.emptyArray(1)
-        self.currentMVP = PTALMatrix4f.emptyArray(1)
-        self.currentShiftIndex = PTAInt.emptyArray(1)
-
-        # Initialize variables
-        self.camera = self.showbase.cam
-        self.size = self._getSize()
-        self.cullBounds = None
-
-        # For the temporal reprojection it is important that the window width
-        # is a multiple of 2
-        if self.settings.enableTemporalReprojection and self.size.x % 2 == 1:
-            self.error(
-                "The window has to have a width which is a multiple of 2 "
-                "(Current: ", self.showbase.win.getXSize(), ")")
-            self.error(
-                "I'll correct that for you, but next time pass the correct "
-                "window size!")
-
-            wp = WindowProperties()
-            wp.setSize(
-                self.showbase.win.getXSize() + 1, self.showbase.win.getYSize())
-            self.showbase.win.requestProperties(wp)
-            self.showbase.graphicsEngine.openWindows()
-
-            # Get new size
-            self.size = self._getSize()
-
-        # Debug variables to disable specific features
-        self.haveLightingPass = True
-
-        # haveCombiner can only be true when haveLightingPass is enabled
-        self.haveCombiner = True
-        self.haveMRT = True
-
-        # Not as good as I want it, so disabled. I'll work on it.
-        self.blurEnabled = False
-
-        self.debug("Window size is", self.size.x, "x", self.size.y)
-
-        self.showbase.camLens.setNearFar(0.1, 50000)
-        self.showbase.camLens.setFov(115)
-
-        self.showbase.win.setClearColor(Vec4(1.0, 0.0, 1.0, 1.0))
-
-        # Create GI handleer
-        if self.settings.enableGlobalIllumination:
-            self._setupGlobalIllumination()
-
-        # Create occlusion handler
-        self._setupOcclusion()
+        # Check size
+        if self._size.x % 2 == 1:
+            self.fatal(
+                "The window width has to be a multiple of 2 "
+                "(Current: ", self._size.x, ")")
+            return
 
         if self.settings.displayOnscreenDebugger:
             self.guiManager = PipelineGuiManager(self)
-            self.guiManager.setup()
-
-        # Generate auto-configuration for shaders
-        self._generateShaderConfiguration()
-
-        # Create light manager, which handles lighting + shadows
-        if self.haveLightingPass:
-            self.lightManager = LightManager(self)
-
-        self.patchSize = LVecBase2i(
-            self.settings.computePatchSizeX,
-            self.settings.computePatchSizeY)
-
-        # Create separate scene graphs. The deferred graph is render
-        self.forwardScene = NodePath("Forward-Rendering")
-        self.transparencyScene = NodePath("Transparency-Rendering")
-
-        # We need no transparency (we store other information in the alpha
-        # channel)
-        self.showbase.render.setAttrib(
-            TransparencyAttrib.make(TransparencyAttrib.MNone), 100)
-
-        # Now create deferred render buffers
-        self._makeDeferredTargets()
-
-        # Create the target which constructs the view-space normals and
-        # position from world-space position
-        if self.occlusion.requiresViewSpacePosNrm():
-            self._createNormalPrecomputeBuffer()
-
-        # Setup the buffers for lighting
-        self._createLightingPipeline()
-
-        # Setup combiner for temporal reprojetion
-        if self.haveCombiner and self.settings.enableTemporalReprojection:
-            self._createCombiner()
-
-        if self.occlusion.requiresBlurring():
-            self._createOcclusionBlurBuffer()
-
-        self._setupAntialiasing()
-
-        if self.blurEnabled:
-            self._createDofStorage()
-            self._createBlurBuffer()
-
-        # Not sure why it has to be 0.25. But that leads to the best result
-        aspect = float(self.size.y) / self.size.x
-        self.onePixelShift = Vec2(
-            0.125 / self.size.x, 0.125 / self.size.y / aspect)
-
-        # Annoying that Vec2 has no multliply-operator for non-floats
-        multiplyVec2 = lambda a, b: Vec2(a.x*b.x, a.y*b.y)
-
-        if self.antialias.requiresJittering():
-            self.pixelShifts = [
-                multiplyVec2(self.onePixelShift, Vec2(-0.25,  0.25)),
-                multiplyVec2(self.onePixelShift, Vec2(0.25, -0.25))
-            ]
         else:
-            self.pixelShifts = [Vec2(0), Vec2(0)]
-        self.currentPixelShift = PTAVecBase2f.emptyArray(1)
-        self.lastPixelShift = PTAVecBase2f.emptyArray(1)
+            self.guiManager = None
 
+        # Some basic scene settings
+        self.showbase.camLens.setNearFar(0.1, 50000)
+        self.showbase.camLens.setFov(90)
+        self.showbase.win.setClearColor(Vec4(1.0, 0.0, 1.0, 1.0))
+        self.showbase.camNode.setCameraMask(self.getMainPassBitmask())
+        self.showbase.render.setAttrib(TransparencyAttrib.make(TransparencyAttrib.MNone), 100)
 
-        self._setupFinalPass()
-        self._setShaderInputs()
+        # Create render pass matcher
+        self.renderPassManager = RenderPassManager()
 
-        # add update task
-        self._attachUpdateTask()
 
-    def getForwardScene(self):
-        """ Reparent objects to this scene to use forward rendering.
-        Objects in this scene will directly get rendered, with no
-        lighting etc. applied. """
-        return self.forwardScene
+        self._precomputeScattering()
 
-    def getTransparentScene(self):
-        """ Reparent objects to this scene to allow this objects to
-        have transparency. Objects in this scene will get directly
-        rendered and no lighting will get applied. """
-        return self.transparencyScene
+        # Add initial pass
+        self.initialRenderPass = InitialRenderPass()
+        self.renderPassManager.registerPass(self.initialRenderPass)
 
-    def _createCombiner(self):
-        """ Creates the target which combines the result from the
-        lighting computation and last frame together
-        (Temporal Reprojection) """
-        self.combiner = RenderTarget("Combine-Temporal")
-        self.combiner.addColorTexture()
-        self.combiner.setColorBits(16)
-        self.combiner.prepareOffscreenBuffer()
-        self._setCombinerShader()
+        # Add deferred pass
+        self.deferredScenePass = DeferredScenePass()
+        self.renderPassManager.registerPass(self.deferredScenePass)
 
-    def _setupGlobalIllumination(self):
-        """ Creates the GI handler """
-        self.globalIllum = GlobalIllumnination(self)
-        self.globalIllum.setup()
+        # Add lighting pass
+        self.lightingPass = LightingPass()
+        self.renderPassManager.registerPass(self.lightingPass)
 
+        # Add dynamic exposure pass
+        if self.settings.useAdaptiveBrightness:
+            self.dynamicExposurePass = DynamicExposurePass(self)
+            self.renderPassManager.registerPass(self.dynamicExposurePass)
 
-    def _setupAntialiasing(self):
-        """ Creates the antialiasing technique """
-        technique = self.settings.antialiasingTechnique
-        self.debug("Creating antialiasing handler for", technique)
+        # Add volumetric lighting
+        # self.volumetricLightingPass = VolumetricLightingPass()
+        # self.renderPassManager.registerPass(self.volumetricLightingPass)
 
-        if technique == "None":
-            self.antialias = AntialiasingTechniqueNone()
-        elif technique == "SMAA":
-            self.antialias = AntialiasingTechniqueSMAA()
-        elif technique == "FXAA":
-            self.antialias = AntialiasingTechniqueFXAA()
-        else:
-            self.error(
-                "Unkown antialiasing technique", technique, "-> using None:")
-            self.antialias = AntialiasingTechniqueNone()
+        # Add final pass
+        self.finalPostprocessPass = FinalPostprocessPass()
+        self.renderPassManager.registerPass(self.finalPostprocessPass)
 
-        if self.occlusion.requiresBlurring():
-            self.antialias.setColorTexture(
-                self.blurOcclusionH.getColorTexture())
-        else:
-            if self.haveCombiner and self.settings.enableTemporalReprojection:
-                self.antialias.setColorTexture(self.combiner.getColorTexture())
-            else:
-                self.antialias.setColorTexture(
-                    self.lightingComputeContainer.getColorTexture())
-
-        self.antialias.setDepthTexture(self.deferredTarget.getDepthTexture())
-        self.antialias.setVelocityTexture(self.deferredTarget.getAuxTexture(1))
-        self.antialias.setup()
-
-    def _setupOcclusion(self):
-        """ Creates the occlusion technique """
-        technique = self.settings.occlusionTechnique
-        self.debug("Creating occlusion handle for", technique)
-
-        if technique == "None":
-            self.occlusion = AmbientOcclusionTechniqueNone()
-        elif technique == "SAO":
-            self.occlusion = AmbientOcclusionTechniqueSAO()
-        else:
-            self.error("Unkown occlusion technique:", technique)
-            self.occlusion = AmbientOcclusionTechniqueNone()
-
-    def _makeDeferredTargets(self):
-        """ Creates the multi-render-target """
-        self.debug("Creating deferred targets")
-        self.deferredTarget = RenderTarget("DeferredTarget")
-        self.deferredTarget.addColorAndDepth()
-
-        if self.haveMRT:
-            self.deferredTarget.addAuxTextures(3)
-            self.deferredTarget.setAuxBits(16)
-            self.deferredTarget.setColorBits(32)
-            self.deferredTarget.setDepthBits(32)
-
-
-        # GL_INVALID_OPERATION ?
-        # self.deferredTarget.setMultisamples(1)
-
-        self.deferredTarget.prepareSceneRender()
-        # self.deferredTarget.setClearColor(False)
-
-    def _setupFinalPass(self):
-        """ Setups the final pass which applies motion blur and so on """
-        # Set wrap for motion blur
-        colorTex = self.antialias.getResultTexture()
-        colorTex.setWrapU(Texture.WMClamp)
-        colorTex.setWrapV(Texture.WMClamp)
-        self._setFinalPassShader()
-
-    def _makeLightPerTileStorage(self):
-        """ Creates a texture to store the lights per tile into. Should
-        get replaced with ssbos later """
-        storageSizeX = self.precomputeSize.x * 8
-        storageSizeY = self.precomputeSize.y * 8
-
-        self.debug(
-            "Creating per tile storage of size",
-            storageSizeX, "x", storageSizeY)
-
-        self.lightPerTileStorage = Texture("LightsPerTile")
-        self.lightPerTileStorage.setup2dTexture(
-            storageSizeX, storageSizeY, Texture.TUnsignedShort, Texture.FR32i)
-        self.lightPerTileStorage.setMinfilter(Texture.FTNearest)
-        self.lightPerTileStorage.setMagfilter(Texture.FTNearest)
-
-    def _createLightingPipeline(self):
-        """ Creates the lighting pipeline, including shadow handling """
-
-        if not self.haveLightingPass:
-            self.debug("Skipping lighting pipeline")
-            return
-
-        self.debug("Creating lighting pipeline ..")
-
-        # size has to be a multiple of the compute unit size
-        # but still has to cover the whole screen
-        sizeX = int(math.ceil(float(self.size.x) / self.patchSize.x))
-        sizeY = int(math.ceil(float(self.size.y) / self.patchSize.y))
-
-        self.precomputeSize = LVecBase2i(sizeX, sizeY)
-
-        self.debug("Batch size =", sizeX, "x", sizeY,
-                   "Actual Buffer size=", int(sizeX * self.patchSize.x),
-                   "x", int(sizeY * self.patchSize.y))
-
-        self._makeLightPerTileStorage()
-
-        # Create a buffer which computes which light affects which tile
-        self._makeLightBoundsComputationBuffer(sizeX, sizeY)
-
-        # Create a buffer which applies the lighting
-        self._makeLightingComputeBuffer()
-
-        # Register for light manager
-        self.lightManager.setLightingComputator(self.lightingComputeContainer)
-        self.lightManager.setLightingCuller(self.lightBoundsComputeBuff)
-
-        self._loadFallbackCubemap()
-        self._loadLookupCubemap()
-
-    def _setShaderInputs(self):
-        """ Sets most of the required shader inputs to the targets """
-
-        # Shader inputs for the light-culling pass
-        if self.haveLightingPass:
-            self.lightBoundsComputeBuff.setShaderInput(
-                "destination", self.lightPerTileStorage)
-            self.lightBoundsComputeBuff.setShaderInput(
-                "depth", self.deferredTarget.getDepthTexture())
-            self.lightBoundsComputeBuff.setShaderInput(
-                "mainCam", self.showbase.cam)
-            self.lightBoundsComputeBuff.setShaderInput(
-                "mainRender", self.showbase.render)
-
-            # Shader inputs for the light-applying pass
-            self.lightingComputeContainer.setShaderInput(
-                "data0", self.deferredTarget.getColorTexture())
-            self.lightingComputeContainer.setShaderInput(
-                "data1", self.deferredTarget.getAuxTexture(0))
-            self.lightingComputeContainer.setShaderInput(
-                "data2", self.deferredTarget.getAuxTexture(1))
-            self.lightingComputeContainer.setShaderInput(
-                "data3", self.deferredTarget.getAuxTexture(2))
-            self.lightingComputeContainer.setShaderInput(
-                "depth", self.deferredTarget.getDepthTexture())
-            self.lightingComputeContainer.setShaderInput(
-                "mainCam", self.showbase.cam)
-            self.lightingComputeContainer.setShaderInput(
-                "mainRender", self.showbase.render)
-
-            if self.occlusion.requiresViewSpacePosNrm():
-                self.lightingComputeContainer.setShaderInput(
-                    "viewSpaceNormals",
-                    self.normalPrecompute.getColorTexture())
-                self.lightingComputeContainer.setShaderInput(
-                    "viewSpacePosition",
-                    self.normalPrecompute.getAuxTexture(0))
-
-            self.lightingComputeContainer.setShaderInput(
-                "shadowAtlas", self.lightManager.getAtlasTex())
-            self.lightingComputeContainer.setShaderInput(
-                "destination", self.lightingComputeCombinedTex)
-            self.lightingComputeContainer.setShaderInput(
-                "temporalProjXOffs", self.temporalProjXOffs)
-            self.lightingComputeContainer.setShaderInput(
-                "cameraPosition", self.cameraPosition)
-
-            self.lightingComputeContainer.setShaderInput(
-                "noiseTexture", self.showbase.loader.loadTexture("Data/Occlusion/noise4x4.png"))
-            self.lightingComputeContainer.setShaderInput(
-                "lightsPerTile", self.lightPerTileStorage)
-
-        # Shader inputs for the occlusion blur passes
-        if self.occlusion.requiresBlurring() and self.haveCombiner:
-            self.blurOcclusionH.setShaderInput(
-                "colorTex", self.blurOcclusionV.getColorTexture())
-
-            if self.settings.enableTemporalReprojection:
-                self.blurOcclusionV.setShaderInput(
-                    "colorTex", self.combiner.getColorTexture())
-            else:
-                self.blurOcclusionV.setShaderInput(
-                    "colorTex",
-                    self.lightingComputeContainer.getColorTexture())
-
-            self.blurOcclusionH.setShaderInput(
-                "normalTex", self.deferredTarget.getAuxTexture(0))
-            self.blurOcclusionV.setShaderInput(
-                "normalTex", self.deferredTarget.getAuxTexture(0))
-            self.blurOcclusionH.setShaderInput(
-                "normalsView", self.normalPrecompute.getAuxTexture(0))
-            self.blurOcclusionV.setShaderInput(
-                "normalsView", self.normalPrecompute.getAuxTexture(0))
-
-        # Shader inputs for the blur passes
-        if self.blurEnabled:
-            self.blurColorH.setShaderInput(
-                "dofStorage", self.dofStorage)
-            self.blurColorV.setShaderInput(
-                "dofStorage", self.dofStorage)
-            self.blurColorH.setShaderInput("colorTex",
-                                           self.antialias.getResultTexture())
-            self.blurColorH.setShaderInput("depthTex",
-                                           self.deferredTarget.getDepthTexture())
-            self.blurColorV.setShaderInput("colorTex",
-                                           self.blurColorH.getColorTexture())
-
-        # Shader inputs for the temporal reprojection
-        if self.haveCombiner and self.settings.enableTemporalReprojection:
-            self.combiner.setShaderInput(
-                "currentComputation",
-                self.lightingComputeContainer.getColorTexture())
-            self.combiner.setShaderInput(
-                "lastFrame", self.lightingComputeCombinedTex)
-            self.combiner.setShaderInput(
-                "positionBuffer", self.deferredTarget.getColorTexture())
-            self.combiner.setShaderInput(
-                "velocityBuffer", self.deferredTarget.getAuxTexture(1))
-            self.combiner.setShaderInput("currentPixelShift",
-                self.currentPixelShift)
-            self.combiner.setShaderInput("lastPixelShift",
-                self.lastPixelShift)
-
-
-            if self.blurEnabled:
-                self.combiner.setShaderInput(
-                    "dofStorage", self.dofStorage)
-
-            self.combiner.setShaderInput(
-                "depthTex", self.deferredTarget.getDepthTexture())
-            self.combiner.setShaderInput(
-                "lastPosition", self.lastPositionBuffer)
-            self.combiner.setShaderInput(
-                "temporalProjXOffs", self.temporalProjXOffs)
-            self.combiner.setShaderInput("lastMVP", self.lastMVP)
-            self.combiner.setShaderInput("cameraPosition", self.cameraPosition)
-            self.combiner.setShaderInput("currentMVP", self.lastMVP)
-
-        # Shader inputs for the final pass
-        if self.blurEnabled:
-            self.deferredTarget.setShaderInput(
-                "colorTex", self.blurColorV.getColorTexture())
-        else:
-            self.deferredTarget.setShaderInput(
-                "colorTex", self.antialias.getResultTexture())
-
-        if self.occlusion.requiresBlurring():
-            self.normalPrecompute.setShaderInput(
-                "positionTex", self.deferredTarget.getColorTexture())
-            self.normalPrecompute.setShaderInput(
-                "mainCam", self.showbase.cam)
-            self.normalPrecompute.setShaderInput(
-                "mainRender", self.showbase.render)
-            self.normalPrecompute.setShaderInput(
-                "depthTex", self.deferredTarget.getDepthTexture())
-
-        if self.haveMRT:
-            self.deferredTarget.setShaderInput(
-                "velocityTex", self.deferredTarget.getAuxTexture(1))
-
-        self.deferredTarget.setShaderInput(
-            "depthTex", self.deferredTarget.getDepthTexture())
-        self.deferredTarget.setShaderInput(
-            "motionBlurFactor", self.motionBlurFactor)
-
-        if self.haveLightingPass:
-            self.deferredTarget.setShaderInput(
-                "lastFrame", self.lightingComputeCombinedTex)
-
-        if self.haveCombiner and self.settings.enableTemporalReprojection:
-            self.deferredTarget.setShaderInput(
-                "newFrame", self.combiner.getColorTexture())
-            self.deferredTarget.setShaderInput(
-                "lastPosition", self.lastPositionBuffer)
-
-            self.deferredTarget.setShaderInput("debugTex",
-                                               self.combiner.getColorTexture())
-        else:
-            self.deferredTarget.setShaderInput("debugTex",
-                                               self.antialias.getResultTexture())
-
-        self.deferredTarget.setShaderInput(
-            "currentPosition", self.deferredTarget.getColorTexture())
-
-        # Set last / current mvp handles
-        self.showbase.render.setShaderInput("lastMVP", self.lastMVP)
-
-        # Set GI inputs
-        if self.settings.enableGlobalIllumination:
-            self.globalIllum.bindTo(self.lightingComputeContainer, "giData")
-
-        # Finally, set shaders
-        self.reloadShaders()
-
-    def _loadFallbackCubemap(self):
-        """ Loads the cubemap for image based lighting """
-        cubemap = self.showbase.loader.loadCubeMap(
-            "Data/Cubemaps/Default/#.png")
-        cubemap.setMinfilter(Texture.FTLinearMipmapLinear)
-        cubemap.setMagfilter(Texture.FTLinearMipmapLinear)
-        cubemap.setFormat(Texture.F_srgb_alpha)
-        self.lightingComputeContainer.setShaderInput(
-            "fallbackCubemap", cubemap)
-
-    def _loadLookupCubemap(self):
-        self.debug("Loading lookup cubemap")
-        cubemap = self.showbase.loader.loadCubeMap(
-            "Data/Cubemaps/DirectionLookup/#.png")
-        cubemap.setMinfilter(Texture.FTNearest)
-        cubemap.setMagfilter(Texture.FTNearest)
-        cubemap.setFormat(Texture.F_rgb8)
-        self.lightingComputeContainer.setShaderInput(
-            "directionToFace", cubemap)
-
-    def _makeLightBoundsComputationBuffer(self, w, h):
-        """ Creates the buffer which precomputes the lights per tile """
-        self.debug("Creating light precomputation buffer of size", w, "x", h)
-        self.lightBoundsComputeBuff = RenderTarget("ComputeLightTileBounds")
-        self.lightBoundsComputeBuff.setSize(w, h)
-        self.lightBoundsComputeBuff.setColorWrite(False)
-        self.lightBoundsComputeBuff.prepareOffscreenBuffer()
-
-    def _makeLightingComputeBuffer(self):
-        """ Creates the buffer which applies the lighting """
-        self.lightingComputeContainer = RenderTarget("ComputeLighting")
-
-        if self.settings.enableTemporalReprojection:
-            self.lightingComputeContainer.setSize(self.size.x / 2, self.size.y)
-        else:
-            self.lightingComputeContainer.setSize(self.size.x, self.size.y)
-
-        self.lightingComputeContainer.addColorTexture()
-        self.lightingComputeContainer.setColorBits(16)
-        self.lightingComputeContainer.prepareOffscreenBuffer()
-
-        self.lightingComputeCombinedTex = Texture("Lighting-Compute-Combined")
-        self.lightingComputeCombinedTex.setup2dTexture(
-            self.size.x, self.size.y, Texture.TFloat, Texture.FRgba8)
-        self.lightingComputeCombinedTex.setMinfilter(Texture.FTLinear)
-        self.lightingComputeCombinedTex.setMagfilter(Texture.FTLinear)
-
-        self.lastPositionBuffer = Texture("Last-Position-Buffer")
-        self.lastPositionBuffer.setup2dTexture(
-            self.size.x, self.size.y, Texture.TFloat, Texture.FRgba16)
-        self.lastPositionBuffer.setMinfilter(Texture.FTNearest)
-        self.lastPositionBuffer.setMagfilter(Texture.FTNearest)
-
-    def _createOcclusionBlurBuffer(self):
-        """ Creates the buffers needed to blur the occlusion """
-        self.blurOcclusionV = RenderTarget("blurOcclusionVertical")
-        self.blurOcclusionV.addColorTexture()
-        self.blurOcclusionV.prepareOffscreenBuffer()
-
-        self.blurOcclusionH = RenderTarget("blurOcclusionHorizontal")
-        self.blurOcclusionH.addColorTexture()
-        self.blurOcclusionH.prepareOffscreenBuffer()
-
-        # Mipmaps for blur?
-        # self.blurOcclusionV.getColorTexture().setMinfilter(
-        #     Texture.FTLinearMipmapLinear)
-        # self.combiner.getColorTexture().setMinfilter(
-        #     Texture.FTLinearMipmapLinear)
-
-    def _createBlurBuffer(self):
-        """ Creates the buffers for the dof """
-        self.blurColorV = RenderTarget("blurColorVertical")
-        self.blurColorV.addColorTexture()
-        self.blurColorV.prepareOffscreenBuffer()
-
-        self.blurColorH = RenderTarget("blurColorHorizontal")
-        self.blurColorH.addColorTexture()
-        self.blurColorH.prepareOffscreenBuffer()
-
-        # self.blurColorH.getColorTexture().setMinfilter(
-        #     Texture.FTLinearMipmapLinear)
-        # self.antialias.getResultTexture().setMinfilter(
-        #     Texture.FTLinearMipmapLinear)
-
-    def _createNormalPrecomputeBuffer(self):
-        """ Creates a buffer which reconstructs the normals and position
-        from view-space """
-        self.normalPrecompute = RenderTarget("PrecomputeNormals")
-        self.normalPrecompute.addColorTexture()
-        self.normalPrecompute.addAuxTextures(1)
-        self.normalPrecompute.setColorBits(16)
-        self.normalPrecompute.setAuxBits(16)
-        self.normalPrecompute.prepareOffscreenBuffer()
-
-    def _createDofStorage(self):
-        """ Creates the texture where the dof factor is stored in, so we
-        don't recompute it each pass """
-        self.dofStorage = Texture("DOFStorage")
-        self.dofStorage.setup2dTexture(
-            self.size.x, self.size.y,
-            Texture.TFloat, Texture.FRg16)
-
-    def _setOcclusionBlurShader(self):
-        """ Sets the shaders which blur the occlusion """
-        blurVShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/BlurOcclusionVertical.fragment")
-        blurHShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/BlurOcclusionHorizontal.fragment")
-        self.blurOcclusionV.setShader(blurVShader)
-        self.blurOcclusionH.setShader(blurHShader)
-
-    def _setBlurShader(self):
-        """ Sets the shaders which blur the color """
-        blurVShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/BlurVertical.fragment")
-        blurHShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/BlurHorizontal.fragment")
-        self.blurColorV.setShader(blurVShader)
-        self.blurColorH.setShader(blurHShader)
-
-    def _setLightingShader(self):
-        """ Sets the shader which applies the light """
-        lightShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/ApplyLighting.fragment")
-        self.lightingComputeContainer.setShader(lightShader)
-
-    def _setCombinerShader(self):
-        """ Sets the shader which combines the lighting with the previous frame
-        (temporal reprojection) """
-        cShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/Combiner.fragment")
-        self.combiner.setShader(cShader)
-
-    def _setPositionComputationShader(self):
-        """ Sets the shader which computes the lights per tile """
-        pcShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/PrecomputeLights.fragment")
-        self.lightBoundsComputeBuff.setShader(pcShader)
-
-    def _setFinalPassShader(self):
-        """ Sets the shader which computes the final frame,
-        with motion blur and so on """
-        fShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/Final.fragment")
-        self.deferredTarget.setShader(fShader)
-
-    def _getSize(self):
-        """ Returns the window size. """
-        return LVecBase2i(
-            self.showbase.win.getXSize(),
-            self.showbase.win.getYSize())
-
-    def reloadShaders(self):
-        """ Reloads all shaders """
-
-        if self.haveLightingPass:
-            self.lightManager.debugReloadShader()
-            self._setPositionComputationShader()
-            self._setLightingShader()
-
-        if self.haveCombiner and self.settings.enableTemporalReprojection:
-            self._setCombinerShader()
-
-        self._setFinalPassShader()
-
-        if self.occlusion.requiresBlurring():
-            self._setOcclusionBlurShader()
-
-        if self.blurEnabled:
-            self._setBlurShader()
-
-        if self.occlusion.requiresViewSpacePosNrm():
-            self._setNormalExtractShader()
-
-        self.antialias.reloadShader()
+        # Create managers
+        self.occlusionManager = AmbientOcclusionManager(self)
+        self.lightManager = LightManager(self)
+        self.antialiasingManager = AntialiasingManager(self)
         
+        if self.settings.useTransparency:
+            self.transparencyManager = TransparencyManager(self)
+        else:
+            self.transparencyManager = None
+
+        self._createGlobalIllum()
+
+        # Make variables available
+        self._createGenericDefines()
+        self._createInputHandles()
+        self._createDefaultTextureInputs()
+        self._createViewSpacePass()
+
+        # Finally matchup all the render passes and set the shaders
+        self.renderPassManager.createPasses()
+        self.renderPassManager.writeAutoconfig()
+        self.renderPassManager.setShaders()
+
+        # Create the update tasks
+        self._createTasks()
+
+
+        # TODO: Make GI use render passes
         if self.settings.enableGlobalIllumination:
             self.globalIllum.reloadShader()
 
-    def _setNormalExtractShader(self):
-        """ Sets the shader which constructs the normals from position """
-        npShader = BetterShader.load(
-            "Shader/DefaultPostProcess.vertex",
-            "Shader/ExtractNormals.fragment")
-        self.normalPrecompute.setShader(npShader)
-
-    def _attachUpdateTask(self):
-        """ Attaches the update tasks to the showbase """
-
-        self.showbase.addTask(
-            self._preRenderCallback, "RP_BeforeRender", sort=-5000)
-
-        self.showbase.addTask(
-            self._update, "RP_Update", sort=-10)
-
-
-        if self.haveLightingPass:
-            self.showbase.addTask(
-                self._updateLights, "RP_UpdateLights", sort=-9)
-            self.showbase.addTask(
-                self._updateShadows, "RP_UpdateShadows", sort=-8)
-
-        if self.settings.displayOnscreenDebugger:
-            self.showbase.addTask(
-                self._updateGUI, "RP_UpdateGUI", sort=7)
-
-        self.showbase.addTask(
-            self._postRenderCallback, "RP_AfterRender", sort=5000)
-
-
-    def _preRenderCallback(self, task=None):
-        """ Called before rendering """
-
-        if self.settings.enableGlobalIllumination:
-            self.globalIllum.process()
-        
-        self.antialias.preRenderUpdate()
-
-        if task is not None:
-            return task.cont
-
-    def _postRenderCallback(self, task=None):
-        """ Called after rendering """
-
-        self.antialias.postRenderUpdate()
-
-        if task is not None:
-            return task.cont
-
-
-    def _computeCameraBounds(self):
-        """ Computes the current camera bounds, i.e. for light culling """
-        cameraBounds = self.camera.node().getLens().makeBounds()
-        cameraBounds.xform(self.camera.getMat(self.showbase.render))
-        return cameraBounds
-
-    def _updateLights(self, task=None):
-        """ Task which updates/culls the lights """
-        self.lightManager.updateLights()
-        if task is not None:
-            return task.cont
-
-    def _updateShadows(self, task=None):
-        """ Task which updates the shadow maps """
-        self.lightManager.updateShadows()
-        if task is not None:
-            return task.cont
-
-    def _updateGUI(self, task=None):
-        """ Task which updates the onscreen gui debugger """
-        self.guiManager.update()
-
-        if task is not None:
-            return task.cont
-
-    def _update(self, task=None):
-        """ Main update task """
-
-        self.currentShiftIndex[0] = 1 - self.currentShiftIndex[0]
-
-        currentFPS = 1.0 / self.showbase.taskMgr.globalClock.getDt()
-
-        self.temporalProjXOffs[0] = 1 - self.temporalProjXOffs[0]
-        self.cameraPosition[0] = self.showbase.cam.getPos(self.showbase.render)
-        self.motionBlurFactor[0] = min(1.5, currentFPS /
-                                       60.0) * self.settings.motionBlurFactor
-
-        self.cullBounds = self._computeCameraBounds()
-
-        if self.haveLightingPass:
-            self.lightManager.setCullBounds(self.cullBounds)
-
-        self.lastMVP[0] = self.currentMVP[0]
-        self.currentMVP[0] = self._computeMVP()
-
-        shift = self.pixelShifts[self.currentShiftIndex[0]]
-        self.lastPixelShift[0] = self.currentPixelShift[0]
-        self.currentPixelShift[0] = shift
-        Globals.base.camLens.setFilmOffset(shift.x, shift.y)
-
-        if task is not None:
-            return task.cont
-
-    def _computeMVP(self):
-        """ Computes the current mvp. Actually, this is the
-        worldViewProjectionMatrix, but for convience it's called mvp. """
-        camLens = self.showbase.camLens
-        projMat = Mat4.convertMat(
-            CSYupRight,
-            camLens.getCoordinateSystem()) * camLens.getProjectionMat()
-        transformMat = TransformState.makeMat(
-            Mat4.convertMat(self.showbase.win.getGsg().getInternalCoordinateSystem(),
-                            CSZupRight))
-        modelViewMat = transformMat.invertCompose(
-            self.showbase.render.getTransform(self.showbase.cam)).getMat()
-        return UnalignedLMatrix4f(modelViewMat * projMat)
-
-    def getLightManager(self):
-        """ Returns a handle to the light manager """
-        return self.lightManager
-
-    def getDefaultObjectShader(self, tesselated=False):
-        """ Returns the default shader for objects """
-
-        if not tesselated:
-            shader = BetterShader.load(
-                "Shader/DefaultObjectShader/vertex.glsl",
-                "Shader/DefaultObjectShader/fragment.glsl")
-        else:
-            self.warn(
-                "Tesselation is only experimental! Remember "
-                "to convert the geometry to patches first!")
-
-            shader = BetterShader.load(
-                "Shader/DefaultObjectShader/vertex.glsl",
-                "Shader/DefaultObjectShader/fragment.glsl",
-                "",
-                "Shader/DefaultObjectShader/tesscontrol.glsl",
-                "Shader/DefaultObjectShader/tesseval.glsl")
-
-        return shader
-
-    def addLight(self, light):
-        """ Adds a light to the list of rendered lights """
-        if self.haveLightingPass:
-            self.lightManager.addLight(light)
-        else:
-            self.warn("Lighting is disabled, so addLight has no effect")
-
-    def _generateShaderConfiguration(self):
-        """ Genrates the global shader include which defines
-        most values used in the shaders. """
-
-        self.debug("(Re)Generating shader configuration")
-
-        # Generate list of defines
-        defines = []
-
-        if self.settings.antialiasingTechnique == "SMAA":
-            quality = self.settings.smaaQuality.upper()
-            if quality in ["LOW", "MEDIUM", "HIGH", "ULTRA"]:
-                defines.append(("SMAA_PRESET_" + quality, ""))
-            else:
-                self.error("Unrecognized SMAA quality:", quality)
-                return
-
-        defines.append(
-            ("LIGHTING_COMPUTE_PATCH_SIZE_X", self.settings.computePatchSizeX))
-        defines.append(
-            ("LIGHTING_COMPUTE_PATCH_SIZE_Y", self.settings.computePatchSizeY))
-        defines.append(
-            ("LIGHTING_MIN_MAX_DEPTH_ACCURACY", self.settings.minMaxDepthAccuracy))
-
-        if self.blurEnabled:
-            defines.append(("USE_DOF", 1))
-
-        if self.settings.useSimpleLighting:
-            defines.append(("USE_SIMPLE_LIGHTING", 1))
-
-        if self.settings.anyLightBoundCheck:
-            defines.append(("LIGHTING_ANY_BOUND_CHECK", 1))
-
-        if self.settings.accurateLightBoundCheck:
-            defines.append(("LIGHTING_ACCURATE_BOUND_CHECK", 1))
-
-        if self.settings.renderShadows:
-            defines.append(("USE_SHADOWS", 1))
-
-        defines.append(
-            ("SHADOW_MAP_ATLAS_SIZE", self.settings.shadowAtlasSize))
-        defines.append(
-            ("SHADOW_MAX_UPDATES_PER_FRAME", self.settings.maxShadowUpdatesPerFrame))
-        defines.append(
-            ("SHAODOW_GEOMETRY_MAX_VERTICES", self.settings.maxShadowUpdatesPerFrame * 3))
-
-        defines.append(("SHADOWS_NUM_SAMPLES", self.settings.numShadowSamples))
-
-        if self.settings.useHardwarePCF:
-            defines.append(("USE_HARDWARE_PCF", 1))
-
-        defines.append(("WINDOW_WIDTH", self.size.x))
-        defines.append(("WINDOW_HEIGHT", self.size.y))
-
-        if self.settings.motionBlurEnabled:
-            defines.append(("USE_MOTION_BLUR", 1))
-
-        defines.append(
-            ("MOTION_BLUR_SAMPLES", self.settings.motionBlurSamples))
-
-        # Occlusion
-        defines.append(
-            ("OCCLUSION_TECHNIQUE_" + self.occlusion.getIncludeName(), 1))
-        defines.append(
-            ("OCCLUSION_RADIUS", self.settings.occlusionRadius))
-        defines.append(
-            ("OCCLUSION_STRENGTH", self.settings.occlusionStrength))
-        defines.append(
-            ("OCCLUSION_SAMPLES", self.settings.occlusionSampleCount))
-
-        if self.settings.displayOnscreenDebugger:
-            defines.append(("DEBUGGER_ACTIVE", 1))
-
-            extraSettings = self.guiManager.getDefines()
-            defines += extraSettings
-
-        if self.settings.enableTemporalReprojection:
-            defines.append(("USE_TEMPORAL_REPROJECTION", 1))
-
-        if self.settings.enableGlobalIllumination:
-            defines.append(("USE_GLOBAL_ILLUMINATION", 1))
-
-        if self.settings.enableScattering:
-            defines.append(("USE_SCATTERING", 1))
-
-        # Pass near far
-        defines.append(("CAMERA_NEAR", Globals.base.camLens.getNear()))
-        defines.append(("CAMERA_FAR", Globals.base.camLens.getFar()))
-
-        # Generate
-        output = "// Autogenerated by RenderingPipeline.py\n"
-        output += "// Do not edit! Your changes will be lost.\n\n"
-
-        for key, value in defines:
-            output += "#define " + key + " " + str(value) + "\n"
-
-        # Try to write the file
-        # Todo: add error handling
-        with open("PipelineTemp/ShaderAutoConfig.include", "w") as handle:
-            handle.write(output)
-
-    def onWindowResized(self):
-        """ Call this whenever the window resized """
-        raise NotImplementedError()
-
-    def destroy(self):
-        """ Call this when you want to shut down the pipeline """
-        self.mountManager.unmount()
-        self.error("Destroy is not implemented yet")
-
-    def reload(self):
-        """ This reloads the whole pipeline, same as destroy(); create() """
-        self.debug("Reloading pipeline")
-        self.destroy()
-        self.create()
-
-    def setActive(self, active):
-        """ You can enable/disable the pipeline, for example
-        when the user is in the menu, the 3d scene does not have
-        to be rendered """
-        raise NotImplementedError()
+        # Give the gui a hint when the pipeline is done loading
+        if self.guiManager:
+            self.guiManager.onPipelineLoaded()

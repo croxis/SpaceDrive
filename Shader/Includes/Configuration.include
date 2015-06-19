@@ -1,77 +1,38 @@
+#pragma once
 
 // This is the main configuration file, included by almost all shaders
 
-// Max values for the light culling
-// If you change anything regarding this in LightManager, 
-// change it here, too 
-#define MAX_VISIBLE_LIGHTS 8
-#define MAX_LIGHTS_PER_PATCH 63
-
-// Same as in LightManager.py
-#define MAX_POINT_LIGHTS 16
-#define MAX_SHADOW_POINT_LIGHTS 16
-
-#define MAX_DIRECTIONAL_LIGHTS 1
-#define MAX_DIRECTIONAL_SHADOW_LIGHTS 1
-
-// Max shadow maps. Has to be the same as in LightManager.py
-#define SHADOW_MAX_TOTAL_MAPS 24
-
-
-// Wheter to clear the lighting buffer each frame to be
-// able to see changes in lighting - only recommended for debugging
-#define LIGHTING_CLEAR_BUFFER_EACH_FRAME
-
-
-// GLSL really needs this as a builtin!
-#define saturate(v) clamp(v, 0, 1)
-
-// Needed for light culling
-const float sqrt_of_2 = 1.4142135623;
-
 // Load Auto-Config
-#include "%ShaderAutoConfig%"
-
-// Performance functions
-#include "Includes/Performance.include"
-
-// Wheter to use post-processing blur, this affects occlusion
-
-#define M_PI 3.14159265
+#pragma include "PipelineTemp/ShaderAutoConfig.include"
 
 
-#ifndef DEBUG_DISABLE_BLUR_OCCLUSION
-    #define USE_OCCLUSION_BLUR
-#endif
-
-
-
-
+#define M_PI 3.1415926536
 
 // #pragma optionNV (unroll all)
 
+// #define USE_BINDLESS_TEXTURES
 
-#define USE_BINDLESS_TEXTURES 0
-
-#if USE_BINDLESS_TEXTURES
+#if defined(USE_BINDLESS_TEXTURES)
     #define BINDLESS layout(bindless_sampler)
 #else
     #define BINDLESS
 #endif
 
 
-#ifdef DEBUG_DISABLE_SHADOWS
-    #undef USE_SHADOWS
-#endif
-
-
-// panda does not support custom names for bound textures.
-// so make it support it, now! :D
-#define DIFFUSE_TEX p3d_Texture0
-#define NORMAL_TEX p3d_Texture1
-#define SPECULAR_TEX p3d_Texture2
-#define ROUGHNESS_TEX p3d_Texture3
-#define DISPLACEMENT_TEX p3d_Texture4
-
 
 #define SKYBOX_BEGIN 15000.0
+
+// Todo: move this to pipeline config
+#define PCSS_RADIUS_WS 0.03
+#define PCSS_SEARCH_RADIUS 22.0
+#define PCSS_FILTER_RADIUS 3.0
+#define USE_PIXEL_BASED_PCSS 1
+
+
+
+#define DIRECTIONAL_LIGHT_SPLIT_COUNTS 5
+
+
+
+
+#pragma include "Includes/CommonFunctions.include"
