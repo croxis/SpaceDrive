@@ -11,6 +11,8 @@ from CheckboxWithLabel import CheckboxWithLabel
 from UIWindow import UIWindow
 from functools import partial
 
+from ..MemoryMonitor import MemoryMonitor
+
 from panda3d.core import Vec3, Vec4
 from direct.gui.DirectFrame import DirectFrame
 from direct.interval.IntervalGlobal import Parallel, Func, Sequence
@@ -72,15 +74,15 @@ class BufferViewerGUI(DebugObject):
         Globals.base.accept("v", self.toggle)
 
         self.window = UIWindow(
-            "Buffer Viewer", 1200, 800, parent)
+            "Buffer Viewer", 1300, 850, parent)
 
         self.window.getNode().setPos(255, 1, -20)
 
-        self.texWidth = 173
-        self.texHeight = 96
-        self.texPadding = 25
-        self.pageSize = 5
-        self.innerPadding = 10
+        self.texWidth = 160
+        self.texHeight = 90
+        self.texPadding = 22
+        self.pageSize = 6
+        self.innerPadding = 8
         self.paddingTop = 40
 
         self.createComponents()
@@ -95,6 +97,11 @@ class BufferViewerGUI(DebugObject):
 
     def setAlphaRendering(self, toggle):
         self.debug("show alpha:", toggle)
+
+    def calculateTexSize(self, tex):
+        dataSize = MemoryMonitor._calculateTexSize(tex)
+        dataSizeMB = dataSize / (1024.0 * 1024.0)
+        return round(dataSizeMB, 1)
 
     def renderBuffers(self):
         self.buffersParent.node().removeAllChildren()
@@ -112,6 +119,8 @@ class BufferViewerGUI(DebugObject):
 
                 if tex.getZSize() != 1:
                     sizeStr += " x " + str(tex.getZSize())
+
+                sizeStr += " - " + str(self.calculateTexSize(tex)) + " MB"
 
                 node = DirectFrame(parent=self.buffersParent, frameColor=(
                     1, 1, 1, 0.2), frameSize=(-self.innerPadding, self.texWidth + self.innerPadding, -self.texHeight - 30 - self.innerPadding, self.innerPadding + 15),
@@ -137,13 +146,13 @@ class BufferViewerGUI(DebugObject):
                     h=computedHeight, transparent=False, nearFilter=False,
                     anyFilter=False)
                 txtName = BetterOnscreenText(
-                    text=name, x=0, y=0, size=15, parent=node)
+                    text=name, x=0, y=0, size=13, parent=node)
                 txtSizeFormat = BetterOnscreenText(
-                    text=sizeStr, x=0, y=20, size=15, parent=node,
+                    text=sizeStr, x=0, y=20, size=13, parent=node,
                     color=Vec3(0.2))
                 txtTarget = BetterOnscreenText(
                     text=str(targetType), align="right", x=self.texWidth,
-                    y=20, size=15, parent=node, color=Vec3(0.2))
+                    y=20, size=13, parent=node, color=Vec3(0.2))
 
                 posX += 1
                 if posX > self.pageSize:
@@ -151,8 +160,8 @@ class BufferViewerGUI(DebugObject):
                     posX = 0
 
     def showDetail(self, tex, coord):
-        availableW = 1180
-        availableH = 690
+        availableW = 1280
+        availableH = 750
 
         texW, texH = tex.getXSize(), tex.getYSize()
         aspect = float(texH) / texW

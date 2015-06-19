@@ -1,9 +1,8 @@
 
-from panda3d.core import PNMImage, Texture, LVecBase3d, NodePath
+from panda3d.core import PNMImage, Texture, LVecBase3d, NodePath, Shader
 from panda3d.core import ShaderAttrib, LVecBase2i, Vec2
 
 from Code.DebugObject import DebugObject
-from Code.BetterShader import BetterShader
 from Code.Globals import Globals
 
 import math
@@ -36,9 +35,9 @@ class GPUFFT(DebugObject):
             self.size, self.size, Texture.TFloat, Texture.FRgba32)
         self.sourceTex = sourceTex
 
-        for tex in [self.pingTexture, self.pongTexture]:
-            # tex.setMinfilter(Texture.FTNearest)
-            # tex.setMagfilter(Texture.FTNearest)
+        for tex in [self.pingTexture, self.pongTexture, sourceTex]:
+            tex.setMinfilter(Texture.FTNearest)
+            tex.setMagfilter(Texture.FTNearest)
             tex.setWrapU(Texture.WMClamp)
             tex.setWrapV(Texture.WMClamp)
 
@@ -47,7 +46,7 @@ class GPUFFT(DebugObject):
 
         # Pre generate the shaders, we have 2 passes: Horizontal and Vertical
         # which both execute log2(N) times with varying radii
-        self.horizontalFFTShader = BetterShader.loadCompute(
+        self.horizontalFFTShader = Shader.loadCompute(Shader.SLGLSL,
             "Shader/Water/HorizontalFFT.compute")
         self.horizontalFFT = NodePath("HorizontalFFT")
         self.horizontalFFT.setShader(self.horizontalFFTShader)
@@ -55,7 +54,7 @@ class GPUFFT(DebugObject):
             "precomputedWeights", self.weightsLookupTex)
         self.horizontalFFT.setShaderInput("N", LVecBase2i(self.size))
 
-        self.verticalFFTShader = BetterShader.loadCompute(
+        self.verticalFFTShader = Shader.loadCompute(Shader.SLGLSL,
             "Shader/Water/VerticalFFT.compute")
         self.verticalFFT = NodePath("VerticalFFT")
         self.verticalFFT.setShader(self.verticalFFTShader)
@@ -67,6 +66,8 @@ class GPUFFT(DebugObject):
         self.resultTexture = Texture("Result")
         self.resultTexture.setup2dTexture(
             self.size, self.size, Texture.TFloat, Texture.FRgba16)
+        self.resultTexture.setMinfilter(Texture.FTLinear)
+        self.resultTexture.setMagfilter(Texture.FTLinear)
 
         # Prepare the shader attributes, so we don't have to regenerate them
         # every frame -> That is VERY slow (3ms per fft instance)

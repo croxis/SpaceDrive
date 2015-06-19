@@ -1,7 +1,7 @@
 
 
-from panda3d.core import Vec3, NodePath, LineSegs, Vec4
-from panda3d.core import OmniBoundingVolume
+from panda3d.core import Vec3, NodePath, LineSegs, Vec4, Shader
+from panda3d.core import OmniBoundingVolume, Mat4
 from panda3d.core import PTAInt
 from LightType import LightType
 from DebugObject import DebugObject
@@ -10,34 +10,37 @@ from ShaderStructArray import ShaderStructElement
 
 class Light(ShaderStructElement):
 
-    """ Abstract light class. All light types are subclasses
-    of this class. This class handles all generic properties
-    of a light. """
+    """ Abstract light class. All light types are subclasses of this class. This 
+    class handles all generic properties of a light, aswell as storing and managing
+    the shadow sources and light updates. """
 
     def __init__(self):
         """ Constructs a new Light, subclasses have to call this """
-
         DebugObject.__init__(self, "AbstractLight")
         ShaderStructElement.__init__(self)
         self.debugNode = NodePath("LightDebug")
-        self.visualizationNumSteps = 16
+        self.visualizationNumSteps = 32
         self.dataNeedsUpdate = False
         self.castShadows = False
         self.debugEnabled = False
         self.bounds = OmniBoundingVolume()
         self.shadowSources = []
-        self.lightType = self._getLightType()
+        self.lightType = self.getLightType()
         self.position = Vec3(0)
-        self.color = Vec3(0)
+        self.color = Vec3(1)
         self.posterIndex = -1
         self.direction = Vec3(0)
-        self.radius = 0.1
+        self.radius = 10.0
         self.typeName = ""
         self.sourceIndexes = PTAInt.emptyArray(6)
         self.attached = False
         self.shadowResolution = 512
-        self.ambient = Vec3(0.2, 0.5, 0.8)
+        self.index = -1
+        self.iesProfile = -1
+        self.iesProfileName = None
+        self.mvp = Mat4()
 
+        # A light can have up to 6 sources
         for i in range(6):
             self.sourceIndexes[i] = -1
 
@@ -50,15 +53,49 @@ class Light(ShaderStructElement):
             "color": "vec3",
             "direction": "vec3",
             "posterIndex": "int",
+            "iesProfile": "int",
             "lightType": "int",
             "radius": "float",
             "sourceIndexes": "array<int>(6)",
-            "ambient": "vec3"
+            "mvp": "mat4"
         }
+
+    def setIESProfile(self, profileName):
+        """ Sets the specified ies profile for that light """
+        self.iesProfileName = profileName
+        self.iesProfile = -1
+
+    def getIESProfileName(self):
+        """ Returns the ies profile of this light """
+        return self.iesProfileName
+
+    def setIESProfileIndex(self, index):
+        """ Sets the ies profile index """
+        self.iesProfile = index
+        self.queueUpdate()
+
+    def getIESProfileIndex(self):
+        """ Returns the ies profile index of this light """
+        return self.iesProfile
+
+    def getIndex(self):
+        """ Returns the light index, this is only set if the light is already attached """
+        return self.index
+
+    def setIndex(self, index):
+        """ Sets the light index, gets called by the LightManager """
+        self.index = index
 
     def getTypeName(self):
         """ Returns the internal id of the light-type, e.g. "PointLight" """
         return self.typeName
+
+    def getDebugNodeShader(self):
+        """ Returns the default shader used for debug nodes """
+        return Shader.load(Shader.SLGLSL,
+                "Shader/DefaultShaders/DebugNode/vertex.glsl",
+                "Shader/DefaultShaders/DebugNode/fragment.glsl"
+            )
 
     def setShadowMapResolution(self, resolution):
         """ Attempts to set the resolution of the shadow soures. You
@@ -70,12 +107,6 @@ class Light(ShaderStructElement):
                 "You cannot change the resolution after the light got attached")
         self.shadowResolution = resolution
 
-    def setAmbientColor(self, ambientColor):
-        """ Sets the ambient color for lighting. The default is a bluish-gray.
-        The ambient color will be added to the final light contribution """
-        self.ambient = ambientColor
-        self.queueUpdate()
-
     def setDirection(self, direction):
         """ Sets the direction of the light. This stores from which vector the light
         comes from. If your sun comes from totally above for example, this vector would
@@ -86,6 +117,10 @@ class Light(ShaderStructElement):
         self.direction = copied
         self.queueUpdate()
         self.queueShadowUpdate()
+
+    def getDirection(self):
+        """ Returns the direction of the light """
+        return self.direction
 
     def setRadius(self, radius):
         """ Sets the radius of the light. Only affects PointLights """
@@ -123,6 +158,12 @@ class Light(ShaderStructElement):
             self.queueUpdate()
             self.queueShadowUpdate()
 
+    def setZ(self, z):
+        if abs(z - self.position.z) > 0.001:
+            self.position.z = z
+            self.queueUpdate()
+            self.queueShadowUpdate()
+
     def getBounds(self):
         """ Returns the bounds of this light for culling """
         return self.bounds
@@ -133,11 +174,11 @@ class Light(ShaderStructElement):
         self.queueUpdate()
 
     def needsUpdate(self):
-        """ Wheter the light data is up-to-date or needs an update """
+        """ Returns wheter the light data is up-to-date or needs an update """
         return self.dataNeedsUpdate
 
     def needsShadowUpdate(self):
-        """ Wheter the light shadow map is up-to-date or needs an update """
+        """ Returns wheter the light shadow map is up-to-date or needs an update """
 
         # no update needed if we have no shadows
         if not self.castShadows:
@@ -150,13 +191,12 @@ class Light(ShaderStructElement):
         return False
 
     def queueUpdate(self):
-        """ Queues a light update, means in the next frame the light
-        data will update """
+        """ Queues a light update, that means in the next frame the light data will update """
         self.dataNeedsUpdate = True
 
     def queueShadowUpdate(self):
         """ Queues a shadow update, means invalidating all shadow sources and
-        adding to the shadow-map update queue, beeing processed as fast as
+        adding them to the shadow-map update queue, beeing processed as fast as
         possible """
         self.shadowNeedsUpdate = True
 
@@ -169,13 +209,14 @@ class Light(ShaderStructElement):
         self._computeAdditionalData()
         self._computeLightBounds()
 
-        if self.castShadows:
-            self._updateShadowSources()
-
         if self.debugEnabled:
             self._updateDebugNode()
 
         self.onPropertyChanged()
+
+    def cleanup(self):
+        """ Cleans up the light before it gets removed """
+        self.debugNode.removeNode()
 
     def performShadowUpdate(self):
         """ Computes which shadow sources need an update and returns these """
@@ -191,6 +232,7 @@ class Light(ShaderStructElement):
         """ Attachs a debug node to parent which shows the bounds of the light.
         VERY SLOW. USE ONLY FOR DEBUGGING """
         self.debugNode.reparentTo(parent)
+        self.debugNode.setShader(self.getDebugNodeShader(), 10000)
         self.debugEnabled = True
         self._updateDebugNode()
 
@@ -217,9 +259,9 @@ class Light(ShaderStructElement):
 
     def _computeAdditionalData(self):
         """ If child classes need to compute anything fancy, do it here """
-        raise NotImplementedError()
+        pass
 
-    def _getLightType(self):
+    def getLightType(self):
         """ Child classes have to implement this and
         return the correct type """
         return LightType.NoType

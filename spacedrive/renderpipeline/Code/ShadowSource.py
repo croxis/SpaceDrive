@@ -11,18 +11,15 @@ from Globals import Globals
 
 class ShadowSource(DebugObject, ShaderStructElement):
 
-    """ This class can be seen as a camera. It stores the necessary
-    data to generate and store the shadow map for the assigned lens
-    (like computing the MVP), and also stores information about the
-    shadowmap, like position in the shadow atlas, or resolution. Each
-    ShadowSource has a unique index, which is used by the LightClass
-    to identify which sources belong to it.
-
-    TODO: Support OrtographicLens
+    """ This class can be seen as a camera. It stores the necessary data to 
+    generate and store the shadow map for the assigned lens (like computing the MVP), 
+    and also stores information about the shadowmap, like position in the 
+    shadow atlas, or resolution. Each ShadowSource has a unique index, 
+    which is used by the lights to identify which sources belong to it.
     """
 
     # Store a global index for assigning unique ids to the instances
-    _GlobalShadowIndex = 1000
+    _GlobalShadowIndex = 999
 
     @classmethod
     def getExposedAttributes(self):
@@ -42,17 +39,18 @@ class ShadowSource(DebugObject, ShaderStructElement):
 
     def __init__(self):
         """ Creates a new ShadowSource. After the creation, a lens can be added
-        with setupPerspectiveLens. """
+        with setupPerspectiveLens or setupOrtographicLens. """
         self.index = self._generateUID()
-
         DebugObject.__init__(self, "ShadowSource-" + str(self.index))
         ShaderStructElement.__init__(self)
 
         self.valid = False
         self.camera = Camera("ShadowSource-" + str(self.index))
+        self.camera.setActive(False)
         self.cameraNode = NodePath(self.camera)
         self.cameraNode.reparentTo(Globals.render)
-        self.resolution = 1024
+        self.cameraNode.hide()
+        self.resolution = 512
         self.atlasPos = Vec2(0)
         self.doesHaveAtlasPos = False
         self.sourceIndex = 0
@@ -61,7 +59,23 @@ class ShadowSource(DebugObject, ShaderStructElement):
         self.nearPlane = 0.0
         self.farPlane = 1000.0
         self.converterYUR = None
-        
+        self.transforMat = TransformState.makeMat(
+            Mat4.convertMat(Globals.base.win.getGsg().getInternalCoordinateSystem(),
+                            CSZupRight))
+            
+    def cleanup(self):
+        """ Cleans up the shadow source """
+        self.cameraNode.removeNode()
+
+    def setFilmSize(self, size_x, size_y):
+        """ Sets the film size of the source, this is equivalent to setFilmSize
+        on a Lens. """
+        self.lens.setFilmSize(size_x, size_y)
+        self.rebuildMatrixCache()
+
+    def getLens(self):
+        """ Returns the source lens """
+        return self.lens
 
     def getSourceIndex(self):
         """ Returns the assigned source index. The source index is the index
@@ -69,8 +83,8 @@ class ShadowSource(DebugObject, ShaderStructElement):
         Light. """
         return self.sourceIndex
 
-    def getUid(self):
-        """ Returns the uid of the light """
+    def getUID(self):
+        """ Returns the uid of the shadow source """
         return self.index
 
     def setSourceIndex(self, index):
@@ -83,12 +97,11 @@ class ShadowSource(DebugObject, ShaderStructElement):
         """ Computes the modelViewProjection matrix for the lens. Actually,
         this is the worldViewProjection matrix, but for convenience it is
         called mvp. """
+
+        self.rebuildMatrixCache()
         projMat = self.converterYUR
-        transformMat = TransformState.makeMat(
-            Mat4.convertMat(Globals.base.win.getGsg().getInternalCoordinateSystem(),
-                            CSZupRight))
-        modelViewMat = transformMat.invertCompose(
-            Globals.render.getTransform(self.cameraNode)).getMat()
+        # modelViewMat = self.transforMat.invertCompose(
+        modelViewMat = Globals.render.getTransform(self.cameraNode).getMat()
         return UnalignedLMatrix4f(modelViewMat * projMat)
 
     def assignAtlasPos(self, x, y):
@@ -98,7 +111,8 @@ class ShadowSource(DebugObject, ShaderStructElement):
         self.doesHaveAtlasPos = True
 
     def update(self):
-        """ Updates the shadow source. Currently only recomputes the mvp. """
+        """ Updates the shadow source. Currently only recomputes the mvp and
+        triggers an array update """
         self.mvp = self.computeMVP()
         self.onPropertyChanged()
 
@@ -109,11 +123,11 @@ class ShadowSource(DebugObject, ShaderStructElement):
 
     def hasAtlasPos(self):
         """ Returns wheter this ShadowSource has already a position in the
-        shadow atlas """
+        shadow atlas, or is currently unassigned """
         return self.doesHaveAtlasPos
 
     def removeFromAtlas(self):
-        """ Deletes the atlas coordinates, called by the atlas after the
+        """ Deletes the atlas coordinates, this gets called by the atlas after the
         Source got removed from the atlas """
         self.doesHaveAtlasPos = False
         self.atlasPos = Vec2(0)
@@ -129,10 +143,8 @@ class ShadowSource(DebugObject, ShaderStructElement):
         return self.resolution
 
     def setupPerspectiveLens(self, near=0.1, far=100.0, fov=(90, 90)):
-        """ Setups a PerspectiveLens with a given nearPlane, farPlane
-        and FoV. The FoV is a tuple in the format
-        (Horizontal FoV, Vertical FoV) """
-        # self.debug("setupPerspectiveLens(",near,",",far,",",fov,")")
+        """ Setups a PerspectiveLens with a given near plane, far plane
+        and FoV. The FoV is a tuple in the format (Horizontal FoV, Vertical FoV) """
         self.lens = PerspectiveLens()
         self.lens.setNearFar(near, far)
         self.lens.setFov(fov[0], fov[1])
@@ -141,11 +153,20 @@ class ShadowSource(DebugObject, ShaderStructElement):
         self.farPlane = far
         self.rebuildMatrixCache()
 
+    def setLens(self, lens):
+        """ Setups the ShadowSource to use an external lens """
+        self.lens = lens
+        self.camera.setLens(self.lens)
+        self.nearPlane = lens.getNear()
+        self.farPlane = lens.getFar()
+        self.nearPlane = 0.5
+        self.farPlane = 50.0
+        self.rebuildMatrixCache()
+
     def setupOrtographicLens(self, near=0.1, far=100.0, filmSize=(512, 512)):
-        """ Setups a OrtographicLens with a given nearPlane, farPlane
-        and filmSize. The filmSize is a tuple in the format
-        (filmWidth, filmHeight) in world space. """
-        # self.debug("setupOrtographicLens(",near,",",far,",",filmSize,")")
+        """ Setups a OrtographicLens with a given near plane, far plane
+        and film size. The film size is a tuple in the format (filmWidth, filmHeight)
+        in world space. """
         self.lens = OrthographicLens()
         self.lens.setNearFar(near, far)
         self.lens.setFilmSize(*filmSize)
@@ -155,15 +176,19 @@ class ShadowSource(DebugObject, ShaderStructElement):
         self.rebuildMatrixCache()
 
     def rebuildMatrixCache(self):
-        """ Computes values frequently used to compute the mvp """
-        self.converterYUR = Mat4.convertMat(CSYupRight, self.lens.getCoordinateSystem()) * self.lens.getProjectionMat()
+        """ Internal method to precompute a part of the MVP to improve performance"""
+        self.converterYUR = self.lens.getProjectionMat()
 
     def setPos(self, pos):
-        """ Sets the position in world space """
+        """ Sets the position of the source in world space """
         self.cameraNode.setPos(pos)
 
+    def getPos(self):
+        """ Returns the position of the source in world space """
+        return self.cameraNode.getPos()
+
     def setHpr(self, hpr):
-        """ Sets the rotation in world space """
+        """ Sets the rotation of the source in world space """
         self.cameraNode.setHpr(hpr)
 
     def lookAt(self, pos):
@@ -173,7 +198,7 @@ class ShadowSource(DebugObject, ShaderStructElement):
     def invalidate(self):
         """ Invalidates this shadow source, means telling the LightManager
         that the shadow map for this light should be rebuilt. Otherwise it
-        won't get refreshed """
+        won't get refreshed. """
         self.valid = False
 
     def setValid(self):
@@ -182,13 +207,15 @@ class ShadowSource(DebugObject, ShaderStructElement):
         self.valid = True
 
     def isValid(self):
-        """ Returns wether the shadow map is still valid or should
-        be refreshed """
+        """ Returns wether the shadow map is still valid or should be refreshed """
         return self.valid
 
     def __repr__(self):
         """ Returns a representative string of this instance """
         return "ShadowSource[id=" + str(self.index) + "]"
 
+    def __hash__(self):
+        return self.index
+
     def onUpdated(self):
-        """ Gets called when shadow sources was updated """
+        """ Gets called when shadow source was updated """

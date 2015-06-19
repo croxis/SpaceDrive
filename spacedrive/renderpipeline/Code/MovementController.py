@@ -1,8 +1,14 @@
 
 from panda3d.core import ModifierButtons, Vec3, PStatClient
 
+from MemoryMonitor import MemoryMonitor
+
 
 class MovementController:
+
+    """ This is a helper class, used to controll the camera and enable various
+    debugging features. It is not really part of the pipeline, but included to
+    view the demo scenes. """
 
     def __init__(self, showbase):
         self.showbase = showbase
@@ -17,50 +23,43 @@ class MovementController:
         self.mouseSensivity = 0.7
         self.keyboardHprSpeed = 0.8
         # self.smoothness = 0.7
-        self.smoothness = 0.0
-
+        self.smoothness = 0.9
+        # self.smoothness = 0.0
 
     def setInitialPosition(self, pos, target):
+        """ Sets the initial camera position """
         self.initialPosition = pos
         self.initialDestination = target
         self._resetToInitial()
 
     def _resetToInitial(self):
+        """ Resets the camera to the initial position """
         self.showbase.camera.setPos(self.initialPosition)
         self.showbase.camera.lookAt(
             self.initialDestination.x, self.initialDestination.y, self.initialDestination.z)
 
-
-
-    # Key handler
     def _setMovement(self, direction, amount):
         self.movement[direction] = amount
 
-    # Keyboard handler for camera rotation
     def _setHprMovement(self, direction, amount):
         self.hprMovement[direction] = amount
 
-
-    # Mouse handler
     def _setMouseEnabled(self, enabled):
         self.mouseEnabled = enabled
 
-    # Increases movement speed
     def _increaseSpeed(self):
         self.speed *= 1.4
 
-    # Decreases movement speed
     def _decreaseSpeed(self):
         self.speed *= 0.6
 
-    # Unbinds the movement controler and restores the previous state
     def unbind(self):
+        """ Unbinds the movement controler and restores the previous state """
         raise NotImplementedError()
 
-    # Attaches the movement controler
-    def setup(self):
 
-        # Setup keybindings
+    def setup(self):
+        """ Attaches the movement controller and inits the keybindings """
 
         # x
         self.showbase.accept("w",       self._setMovement, [0, 1])
@@ -81,9 +80,8 @@ class MovementController:
         self.showbase.accept("shift-up", self._setMovement, [2, 0])
 
         # wireframe + debug + buffer viewer
-        self.showbase.accept("f3", self.showbase.toggleWireframe)
+        # self.showbase.accept("f3", self.showbase.toggleWireframe)
         self.showbase.accept("p",  self._showDebugOutput)
-        # self.showbase.accept("v",  self._toggleBufferViewer)
 
         # mouse
         self.showbase.accept("mouse1",    self._setMouseEnabled, [True])
@@ -98,7 +96,6 @@ class MovementController:
         self.showbase.accept("arrow_left-up",   self._setHprMovement, [0, 0])
         self.showbase.accept("arrow_right",     self._setHprMovement, [0, -1])
         self.showbase.accept("arrow_right-up",  self._setHprMovement, [0, 0])
-
 
         # increase / decrease speed
         self.showbase.accept("+", self._increaseSpeed)
@@ -115,19 +112,14 @@ class MovementController:
 
         # add ourself as an update task
         self.showbase.addTask(
-            self._update, "updateMovementController", priority=90)
+            self._update, "updateMovementController", priority=-19000)
 
 
         self.showbase.accept("1", PStatClient.connect)
         self.showbase.accept("3", self._resetToInitial)
 
-    # Internal method to trigger buffer viewer
-    def _toggleBufferViewer(self):
-        print "Toggling buffer viewer"
-        self.showbase.bufferViewer.toggleEnable()
-
-    # Invernal update method
     def _update(self, task):
+        """ Internal update method """
 
         # Update mouse first
         if self.showbase.mouseWatcherNode.hasMouse():
@@ -163,10 +155,7 @@ class MovementController:
         translatedDirection.addZ(
             self.movement[2] * self.showbase.taskMgr.globalClock.getDt() * 40.0 * self.speed)
 
-
-
         self.velocity += translatedDirection*0.15
-        # self.velocity *= self.smoothness*0.19 + 0.8
 
         # apply new position
         self.showbase.camera.setPos(
@@ -181,8 +170,9 @@ class MovementController:
         return task.cont
 
 
-    # Shows debug options
+
     def _showDebugOutput(self):
+        """ Lists the available debug options """
         print "\n" * 5
         print "DEBUG MENU"
         print "-" * 50
@@ -193,6 +183,7 @@ class MovementController:
         print "\t(4) Display camera position"
         print "\t(5) Show scene graph"
         print "\t(6) Open placement window"
+        print "\t(7) Analyze VRAM"
         print
 
         selectedOption = raw_input("Which do you want to choose?: ")
@@ -203,7 +194,7 @@ class MovementController:
             print "Option has to be a valid number!"
             return False
 
-        if selectedOption < 1 or selectedOption > 6:
+        if selectedOption < 1 or selectedOption > 7:
             print "Invalid option!"
             return False
 
@@ -246,3 +237,8 @@ class MovementController:
             print "Opening placement window. You need tkinter installed to be able to use it"
             self.showbase.render.place()
             # print "It seems .place() is currently not working. Sorry!!"
+    
+        # vram analyszs
+        elif selectedOption == 7:
+            print "Analyzing VRAM ..."
+            MemoryMonitor.analyzeMemory()

@@ -1,0 +1,155 @@
+#pragma once
+
+#pragma include "Includes/Configuration.include"
+#pragma include "Includes/TransparentMaterial.include"
+
+
+void saveMaterialNextPointer(uint pointer, uint position) {
+    uvec4 data = imageLoad(materialDataBuffer, int(position) );
+    data.w = pointer;
+    imageStore(materialDataBuffer, int(position), data);
+}
+
+
+vec3 encodeNormal(vec3 n)
+{
+    vec2 enc = normalize(n.xy) * (sqrt(n.z*0.5+0.5));
+    enc = enc*0.5+0.5;
+    return vec3(enc, 0);
+}
+void renderTransparentMaterial(TransparentMaterial tm) {
+
+    #if !defined(DEBUG_DISABLE_TRANSPARENCY)
+
+    ivec2 coord = ivec2(gl_FragCoord.xy);
+
+    tm.color = saturate(tm.color);
+    tm.alpha = saturate(tm.alpha);
+    tm.nextEntry = 0u;
+    tm.materialType = clamp(tm.materialType, 0, 255);
+    // tm.normal = saturate(tm.normal * 0.5 + 0.5);
+    tm.normal = normalize(tm.normal);
+    tm.depth = saturate(tm.depth);
+
+
+    // if (position >= 100000000) return;
+
+    // Spinlock while editing the linked list
+    bool done = false;
+
+    uint locked = 0;
+    int max_iter = 12;
+
+    // Allocate buffer position
+    uint position = imageAtomicAdd(pixelCountBuffer, ivec2(0, 0), 1) + 1;
+
+
+    // Store material
+    while(!done && max_iter --> 0)
+    {
+        locked = imageAtomicExchange(spinLockBuffer, coord, 1);
+        if (locked == 0)
+        {
+
+            // Insert the material to the per pixel list
+            uint listHead = imageLoad(listHeadBuffer, coord).x;
+
+            // We are the first fragment
+            if (listHead == 0u) {
+                imageStore(listHeadBuffer, coord, uvec4(position) );
+                tm.nextEntry = 0u;
+                // tm.color = vec3(1,0,0);
+            } else {
+
+
+                // Insert sorted?
+                // Warning; currently buggy
+                #if 0
+
+                int max_list_iter = 1000;
+                // break;
+                bool inserted = false;
+                bool atHead = true;
+                uint lastPointer = 0u;
+                uint currentPointer = listHead;
+
+
+                while(currentPointer != 0u && max_list_iter --> 0) {
+
+                    float currentDepth = extractMaterialDepth(currentPointer);
+
+                    // Insert node infront
+                    if (currentDepth < tm.depth - 0.000001) {
+                    // if (true) {
+
+                        // Our node now points to the first object
+                        tm.nextEntry = currentPointer;
+                        inserted = true;
+
+                        // Edit the pointer of the previous object
+                        if (atHead) {
+                            // Save new list head
+                            imageStore(listHeadBuffer, coord, uvec4(position));
+                            // tm.color = vec3(0,1,0);
+                        } else {
+                            saveMaterialNextPointer(position, lastPointer);
+                            // tm.color = vec3(0,1,1);
+                        }
+    
+                        currentPointer = 0u;
+
+                    } else {
+                        atHead = false;
+                        lastPointer = currentPointer;
+                        currentPointer = extractMaterialNextPointer(currentPointer);
+                    }
+                }
+
+                // We are at the end of the list, so we are the last element
+                if (!inserted && lastPointer != 0) {
+                    saveMaterialNextPointer(position, lastPointer);
+                    // tm.color = vec3(0,0,1);
+                    tm.nextEntry = 0u;
+                }
+
+                #else
+
+                tm.nextEntry = listHead;
+                imageStore(listHeadBuffer, coord, uvec4(position));
+
+                #endif
+
+            }
+
+
+            memoryBarrier();
+            imageAtomicExchange(spinLockBuffer, coord, 0);
+            done = true;
+        }
+    }
+
+
+    // Pack material
+    // uint integer1 = int(tm.color.x * 250.0 + 0.5) | int(tm.color.y * 250.0 + 0.5) << 8 | int(tm.color.z * 250.0 + 0.5) << 16 | tm.materialType << 24;
+    uint integer1 = packSnorm4x8(vec4(tm.color, tm.materialType));
+    uint integer2 = packSnorm4x8(vec4(tm.normal, tm.alpha));
+
+    #if defined(USE_UINT_PACKING)
+        uint integer3 = uint(tm.depth * 0xFFFFFFFF);
+    #else
+        uint integer3 = floatBitsToUint(tm.depth);
+    #endif
+
+    uint integer4 = tm.nextEntry;
+
+
+
+    // Store material
+    imageStore(materialDataBuffer, int(position), uvec4(integer1, integer2, integer3, integer4));
+// 
+
+    #endif
+
+    discard;
+
+}

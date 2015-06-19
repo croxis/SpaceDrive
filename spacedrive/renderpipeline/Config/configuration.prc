@@ -24,10 +24,9 @@ garbage-collect-states #t
 transform-cache #t
 state-cache #t
 
-
 # Trying this for performance
-# uniquify-transforms #f
-# uniquify-states #f 
+uniquify-transforms #t
+uniquify-states #t
 # uniquify-attribs #f
 
 # Faster texture loading
@@ -42,7 +41,6 @@ frame-rate-meter-layer-sort 1000
 frame-rate-meter-scale 0.04
 frame-rate-meter-side-margins 0.4
 
-
 # Pstats
 pstats-target-frame-rate 30.0
 # pstats-unused-states #f
@@ -52,7 +50,8 @@ pstats-target-frame-rate 30.0
 
 
 # Threading
-# threading-model App/Cull/Draw
+#threading-model App/Cull/Draw
+
 
 
 # Try for better performance
@@ -111,7 +110,7 @@ sync-video #f
 textures-power-2 none
 
 # Dump shaders
-# gl-dump-compiled-shaders #f
+gl-dump-compiled-shaders #f
 # notify-level-glgsg debug
 
 # Better GL performance
@@ -120,7 +119,9 @@ gl-force-no-error #t
 gl-check-errors #f
 gl-force-no-flush #t
 gl-force-no-scissor #t
-gl-debug #t
+gl-debug #f
+
+# notify-level-glgsg debug
 
 # gl-enable-memory-barriers #f
 
@@ -143,7 +144,7 @@ support-threads #t
 # driver-generate-mipmaps #f
 # gl-ignore-mipmaps #t
 
-gl-immutable-texture-storage #f
+gl-immutable-texture-storage #t
 
 # notify-level-gobj debug
 
@@ -151,13 +152,25 @@ gl-dump-compiled-shaders #f
 
 gl-cube-map-seamless #t
 
-# buggy as hell
+# buggy.
 # want-directtools #t
 # want-tk #t
-
 
 model-cache-dir $USER_APPDATA/Panda3D-1.9/cache
 model-cache-textures #f
 
 notify-level-pnmimage error
 show-buffers #f
+
+# GPU Timer queries
+pstats-gpu-timing #t
+auto-flip #f
+
+gl-debug-object-labels #f
+
+
+gl-coordinate-system default
+
+# notify-level-gsg spam
+# notify-level-glgsg error
+

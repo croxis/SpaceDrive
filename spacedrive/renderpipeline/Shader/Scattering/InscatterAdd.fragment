@@ -1,8 +1,6 @@
 #version 150
-#pragma file "InscatterAdd.fragment"
 
-#include "Scattering/ScatteringOptions.include"
-#include "Scattering/Scattering.include"
+#pragma include "Includes/ScatteringPrecompute.include"
 
 uniform ScatteringOptions options;
 
