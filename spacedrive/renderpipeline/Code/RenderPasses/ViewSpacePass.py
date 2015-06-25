@@ -1,9 +1,9 @@
 
 from panda3d.core import NodePath, Shader, LVecBase2i, Texture, GeomEnums
 
-from Code.Globals import Globals
-from Code.RenderPass import RenderPass
-from Code.RenderTarget import RenderTarget
+from ..Globals import Globals
+from ..RenderPass import RenderPass
+from ..RenderTarget import RenderTarget
 
 class ViewSpacePass(RenderPass):
 
@@ -27,12 +27,15 @@ class ViewSpacePass(RenderPass):
         }
 
     def create(self):
+        print "VS GLob:", Globals.base
         self.target = RenderTarget("ViewSpacePass")
         self.target.addColorTexture()
         self.target.addAuxTexture()
         self.target.setColorBits(16)
         self.target.setAuxBits(16)
         self.target.prepareOffscreenBuffer()
+
+        print "VS End:", Globals.base
  
     def setShaders(self):
         shader = Shader.load(Shader.SLGLSL, 

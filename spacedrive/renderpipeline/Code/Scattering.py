@@ -302,6 +302,7 @@ class Scattering(DebugObject):
             self.error("Scattering is already computed! You can only do this once")
             return
         self.debug("Precomputing ..")
+        print "Precompute globals check", Globals.base
         self._executePrecompute()
 
     def setSettings(self, settings):

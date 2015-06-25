@@ -115,9 +115,10 @@ def init_graphics(system=GraphicsSystem,
                    VirtualFileSystem.MF_read_only)
     # sandbox.base.camLens.set_far(20000000)
     #sandbox.base.camLens.set_far(2000000)
-    sandbox.base.render_pipeline = RenderingPipeline(sandbox.base)
-    sandbox.base.render_pipeline.loadSettings('pipeline.ini')
-    # sandbox.base.render_pipeline.setRootDirectory(os.path.dirname(__file__) + '/renderpipeline/')
+    from .renderpipeline.Code.Globals import Globals
+    Globals.load(sandbox.base)
+    sandbox.render_pipeline = RenderingPipeline(sandbox.base)
+    sandbox.render_pipeline.loadSettings('pipeline.ini')
     #TODO: Make platform options
     cache_dir = sandbox.appdirs.user_cache_dir('spacedrive', 'croxis')
     log.debug("Cache Directory: " + cache_dir)
@@ -125,11 +126,13 @@ def init_graphics(system=GraphicsSystem,
         os.makedirs(cache_dir)
     if not os.path.exists(os.path.join(cache_dir, 'Shaders')):
         os.makedirs(os.path.join(cache_dir, 'Shaders'))
-    sandbox.base.render_pipeline.getMountManager().setBasePath(
+    sandbox.render_pipeline.getMountManager().setBasePath(
         os.path.join(os.path.dirname(__file__), 'renderpipeline'))
-    sandbox.base.render_pipeline.getMountManager().setWritePath(
+    sandbox.render_pipeline.getMountManager().setWritePath(
         os.path.join(cache_dir, 'Shaders'))
-    sandbox.base.render_pipeline.create()
+
+
+    sandbox.render_pipeline.create()
     init_system(system, component)
 
     if not debug_mouse:

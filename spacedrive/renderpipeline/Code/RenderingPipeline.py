@@ -407,8 +407,8 @@ class RenderingPipeline(DebugObject):
         # Create render pass matcher
         self.renderPassManager = RenderPassManager()
 
-
         self._precomputeScattering()
+
 
         # Add initial pass
         self.initialRenderPass = InitialRenderPass()
@@ -469,3 +469,5 @@ class RenderingPipeline(DebugObject):
         # Give the gui a hint when the pipeline is done loading
         if self.guiManager:
             self.guiManager.onPipelineLoaded()
+
+        print "End init Globals:", Globals.base

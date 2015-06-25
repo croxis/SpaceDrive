@@ -11,12 +11,11 @@ from panda3d.core import Geom, GeomNode, GeomTriangles, GeomVertexArrayFormat
 from panda3d.core import GeomVertexData, GeomVertexFormat, GeomVertexWriter
 from panda3d.core import CardMaker, InternalName
 from panda3d.core import Material, NodePath, PerlinNoise3, PNMImage, Point3
-from panda3d.core import Texture, TextureStage
+from panda3d.core import Shader, Texture, TextureStage
 from panda3d.core import VBase4, Vec3
 
 import sandbox
 
-from .renderpipeline.Code.BetterShader import BetterShader
 from .utils import convertToPatches
 
 
@@ -1064,11 +1063,18 @@ class Surface(Body):
         self.load_shaders()
 
     def load_shaders(self):
-        shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
+        '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
                                     'Shader/Planet/surface_fragment.glsl',
                                     '',
                                     "Shader/DefaultObjectShader/tesscontrol.glsl",
-                                    "Shader/DefaultObjectShader/tesseval.glsl")
+                                    "Shader/DefaultObjectShader/tesseval.glsl")'''
+        shaders = Shader.load(Shader.SL_GLSL,
+                              'Shader/Planet/surface_vertex.glsl',
+                            'Shader/Planet/surface_fragment.glsl',
+                            '',
+                            "Shader/DefaultObjectShader/tesscontrol.glsl",
+                            "Shader/DefaultObjectShader/tesseval.glsl")
+
         convertToPatches(self.node_path)
         for m in self.sides:
             m.set_shader(shaders)
@@ -1154,8 +1160,11 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
     final_node_path.set_billboard_point_eye()
     path = os.path.dirname(os.path.dirname(__file__))
     path = os.path.join(path, 'spacedrive', 'Shader', 'Star')
-    shaders = BetterShader.load(os.path.join(path, 'vertex.glsl'),
-                                os.path.join(path, 'fragment.glsl'))
+    from panda3d.core import Shader
+    #shaders = BetterShader.load(os.path.join(path, 'vertex.glsl'),
+    #                            os.path.join(path, 'fragment.glsl'))
+    shaders = Shader.load(os.path.join(path, 'vertex.glsl'),
+                          os.path.join(path, 'fragment.glsl'))
     final_node_path.set_shader_input('cameraSpherePos', 1, 1, 1)
     final_node_path.set_shader_input('sphereRadius', 1.0)
     final_node_path.set_shader_input('myCamera', base.camera)

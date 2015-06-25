@@ -230,7 +230,6 @@ class RenderPassManager(DebugObject):
 
         # Create passes by iterating over the sorted lists
         for renderPass in self._sortedNodes:
-
             renderPass.create()
 
             # Add the defines the render pass provides

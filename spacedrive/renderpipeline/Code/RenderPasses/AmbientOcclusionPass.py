@@ -1,9 +1,9 @@
 
 from panda3d.core import NodePath, Shader, LVecBase2i, Texture, GeomEnums
 
-from Code.Globals import Globals
-from Code.RenderPass import RenderPass
-from Code.RenderTarget import RenderTarget
+from ..Globals import Globals
+from ..RenderPass import RenderPass
+from ..RenderTarget import RenderTarget
 
 class AmbientOcclusionPass(RenderPass):
 
@@ -13,7 +13,9 @@ class AmbientOcclusionPass(RenderPass):
      pass """
 
     def __init__(self):
+        print "AO GLob init:", Globals.base
         RenderPass.__init__(self)
+        print "AO GLob init end:", Globals.base
 
     def getID(self):
         return "AmbientOcclusionPass"
@@ -29,6 +31,7 @@ class AmbientOcclusionPass(RenderPass):
         }
 
     def create(self):
+        print "AO GLob:", Globals.base
         self.target = RenderTarget("AmbientOcclusion")
         self.target.setHalfResolution()
         self.target.addColorTexture()

@@ -1,7 +1,7 @@
 
 
 
-class Globals:
+class Globals(object):
 
     """ This class is a singleton to store globals because cython can't handle
     global variables. """
@@ -12,10 +12,10 @@ class Globals:
     clock = None
     
     @classmethod
-    def load(self, showbase):
+    def load(cls, showbase):
         """ Fetches the globals from a given showbase """
-        self.base = showbase
-        self.loader = showbase.loader
-        self.render = showbase.render
-        self.clock = showbase.taskMgr.globalClock
-        self.font = None
+        cls.base = showbase
+        cls.loader = showbase.loader
+        cls.render = showbase.render
+        cls.clock = showbase.taskMgr.globalClock
+        cls.font = None
