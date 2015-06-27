@@ -66,12 +66,12 @@ class GraphicsSystem(sandbox.EntitySystem):
             if render_component.atmosphere:
                 offset = Vec3(screen_pos.get_x(), screen_pos.get_y(), screen_pos.get_z())
                 render_component.atmosphere.adjustSetting("atmosphereOffset", offset)
-                sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput('sunIntensity', 0.5)
+                #sandbox.render_pipeline.lightingComputeContainer.setShaderInput('sunIntensity', 0.5)
                 vector = self.sun_pos - celestial_component.true_pos
                 vector.normalize()
                 sun_vector = Vec3(vector.get_x(), vector.get_y(), vector.get_z())
                 #print(sun_vector)
-                sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput('sunVector', sun_vector)
+                #sandbox.render_pipeline.lightingComputeContainer.setShaderInput('sunVector', sun_vector)
                 #render_component.atmosphere.adjustSetting("atmosphereScale", Vec3(1.3))
                 #render_component.atmosphere.adjustSetting("atmosphereScale", Vec3(1/10.0))
 

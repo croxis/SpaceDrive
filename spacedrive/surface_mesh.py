@@ -1023,7 +1023,7 @@ class Body(object):
         return self.node_path.get_pos()
 
     def set_pos(self, *args):
-        self.node_path.set_pos(args)
+        self.node_path.set_pos(*args)
 
     def set_hpr(self, *args, **kwargs):
         self.node_path.set_hpr(*args, **kwargs)
@@ -1032,10 +1032,10 @@ class Body(object):
         return self.node_path.get_scale()
 
     def set_scale(self, *args):
-        self.node_path.set_scale(args)
+        self.node_path.set_scale(*args)
 
     def reparent_to(self, *args):
-        self.node_path.reparent_to(args)
+        self.node_path.reparent_to(*args)
 
     def set_shader_input(self, *args, **kwargs):
         self.node_path.set_shader_input(*args, **kwargs)
@@ -1070,10 +1070,10 @@ class Surface(Body):
                                     "Shader/DefaultObjectShader/tesseval.glsl")'''
         shaders = Shader.load(Shader.SL_GLSL,
                               'Shader/Planet/surface_vertex.glsl',
-                            'Shader/Planet/surface_fragment.glsl',
-                            '',
-                            "Shader/DefaultObjectShader/tesscontrol.glsl",
-                            "Shader/DefaultObjectShader/tesseval.glsl")
+                              'Shader/Planet/surface_fragment.glsl',
+                              '',
+                              "Shader/DefaultShaders/Opaque/tesscontrol.glsl",
+                              "Shader/DefaultShaders/Opaque/tesseval.glsl")
 
         convertToPatches(self.node_path)
         for m in self.sides:
@@ -1158,18 +1158,14 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
     node = card_maker.generate()
     final_node_path = node_path.attach_new_node(node)
     final_node_path.set_billboard_point_eye()
-    path = os.path.dirname(os.path.dirname(__file__))
-    path = os.path.join(path, 'spacedrive', 'Shader', 'Star')
-    from panda3d.core import Shader
-    #shaders = BetterShader.load(os.path.join(path, 'vertex.glsl'),
-    #                            os.path.join(path, 'fragment.glsl'))
-    shaders = Shader.load(os.path.join(path, 'vertex.glsl'),
-                          os.path.join(path, 'fragment.glsl'))
-    final_node_path.set_shader_input('cameraSpherePos', 1, 1, 1)
-    final_node_path.set_shader_input('sphereRadius', 1.0)
-    final_node_path.set_shader_input('myCamera', base.camera)
+    shaders = Shader.load(Shader.SLGLSL,
+                          'Shader/Star/vertex.glsl',
+                          'Shader/Star/fragment.glsl')
+    final_node_path.set_shader_input(b'cameraSpherePos', 1, 1, 1)
+    final_node_path.set_shader_input(b'sphereRadius', 1.0)
+    final_node_path.set_shader_input(b'myCamera', base.camera)
     final_node_path.set_shader(shaders)
-    final_node_path.set_shader_input('blackbody', color)
+    final_node_path.set_shader_input(b'blackbody', color)
     material = Material()
     material.set_emission(VBase4(color, 1.0))
     final_node_path.set_material(material)

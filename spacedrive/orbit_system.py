@@ -120,7 +120,6 @@ def generate_node(name, database, parent_component):
         celestial_component.node_path.reparent_to(parent_component.node_path)
     celestial_component.node_path.set_python_tag('entity', body_entity)
 
-
     #FIXME: Does not factor parent positions for nested objects.
     if celestial_component.orbit:
         true_pos = calc_body_pos(celestial_component, universals.day)
@@ -134,17 +133,17 @@ def generate_node(name, database, parent_component):
         if database['type'] != 'star':
             render_component.mesh = surface_mesh.make_planet(name=name)
             if 'atmosphere' in database:
-                render_component.atmosphere = Scattering()
+                render_component.atmosphere = Scattering(sandbox.render_pipeline)
                 render_component.atmosphere.setSettings({
                     'radiusGround': database['radius']/1000.0,
                     'radiusAtmosphere': database['radius']/1000.0 + database['atmosphere']['height']/1000.0,
                 })
                 render_component.atmosphere.precompute()
-                render_component.atmosphere.bindTo(sandbox.base.render_pipeline.lightingComputeContainer, "scatteringOptions")
+                '''render_component.atmosphere.bindTo(sandbox.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
                     "transmittanceSampler", render_component.atmosphere.getTransmittanceResult())
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
-                    "inscatterSampler", render_component.atmosphere.getInscatterTexture())
+                    "inscatterSampler", render_component.atmosphere.getInscatterTexture())'''
 
         #sandbox.send('make pickable', [render_component.mesh])
         if database['type'] == 'star':
@@ -155,12 +154,12 @@ def generate_node(name, database, parent_component):
             #/Debug
             render_component.temperature = database['temperature']
             render_component.light = DirectionalLight()
-            render_component.light.setAmbientColor(Vec3(0))
-            render_component.light.setColor(Vec3(color))
+            #render_component.light.setAmbientColor(Vec3(0))
+            #render_component.light.setColor(Vec3(color))
             render_component.light.setDirection(render_component.mesh.get_pos())
             render_component.light.setShadowMapResolution(1024)
             render_component.light.setCastsShadows(True)
-            sandbox.base.render_pipeline.addLight(render_component.light)
+            sandbox.render_pipeline.addLight(render_component.light)
 
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['textures'])

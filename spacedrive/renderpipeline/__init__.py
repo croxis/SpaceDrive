@@ -8,6 +8,6 @@ import os.path
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from .Code.DirectionalLight import DirectionalLight
-#from .Code.PointLight import PointLight
+from .Code.PointLight import PointLight
 from .Code.RenderingPipeline import RenderingPipeline
 from .Code.Scattering import Scattering
