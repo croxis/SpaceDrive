@@ -115,8 +115,8 @@ def init_graphics(system=GraphicsSystem,
                    VirtualFileSystem.MF_read_only)
     # sandbox.base.camLens.set_far(20000000)
     #sandbox.base.camLens.set_far(2000000)
-    from .renderpipeline.Code.Globals import Globals
-    Globals.load(sandbox.base)
+    #from .renderpipeline.Code.Globals import Globals
+    #Globals.load(sandbox.base)
     sandbox.render_pipeline = RenderingPipeline(sandbox.base)
     sandbox.render_pipeline.loadSettings('pipeline.ini')
     #TODO: Make platform options
@@ -130,7 +130,6 @@ def init_graphics(system=GraphicsSystem,
         os.path.join(os.path.dirname(__file__), 'renderpipeline'))
     sandbox.render_pipeline.getMountManager().setWritePath(
         os.path.join(cache_dir, 'Shaders'))
-
 
     sandbox.render_pipeline.create()
     init_system(system, component)
