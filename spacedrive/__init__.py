@@ -132,6 +132,7 @@ def init_graphics(system=GraphicsSystem,
         os.path.join(cache_dir, 'Shaders'))
 
     sandbox.render_pipeline.create()
+    sandbox.render_pipeline.onSceneInitialized()
     init_system(system, component)
 
     if not debug_mouse:
