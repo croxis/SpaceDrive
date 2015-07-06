@@ -36,7 +36,6 @@ class RenderingPipeline(DebugObject):
     It also handles some functions to prepare the scene, e.g. for tesselation.
     """
 
-
     def __init__(self, showbase):
         """ Creates a new pipeline """
         DebugObject.__init__(self, "RenderingPipeline")
@@ -44,6 +43,7 @@ class RenderingPipeline(DebugObject):
         self.settings = None
         self.ready = False
         self.mountManager = MountManager()
+        self.scattering = None
 
     def getMountManager(self):
         """ Returns the mount manager. You can use this to set the
@@ -356,6 +356,7 @@ class RenderingPipeline(DebugObject):
             })
             earthScattering.precompute()
             earthScattering.provideInputs()
+            self.scattering = earthScattering
 
     def create(self):
         """ Creates the pipeline """
@@ -469,5 +470,3 @@ class RenderingPipeline(DebugObject):
         # Give the gui a hint when the pipeline is done loading
         if self.guiManager:
             self.guiManager.onPipelineLoaded()
-
-        print "End init Globals:", Globals.base

@@ -13,9 +13,7 @@ class AmbientOcclusionPass(RenderPass):
      pass """
 
     def __init__(self):
-        print "AO GLob init:", Globals.base
         RenderPass.__init__(self)
-        print "AO GLob init end:", Globals.base
 
     def getID(self):
         return "AmbientOcclusionPass"

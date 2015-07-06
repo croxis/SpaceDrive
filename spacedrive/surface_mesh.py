@@ -1049,7 +1049,7 @@ class Surface(Body):
         # create sane material defaults
         self.material = Material()
         self.material.set_diffuse(VBase4(1.0, 1.0, 1.0, 1.0))
-        #self.material.set_ambient(VBase4(1.0, 1.0, 1.0, 1.0))
+        self.material.set_ambient(VBase4(1.0, 1.0, 1.0, 1.0))
         self.material.set_emission(VBase4(0.0, 0.0, 0.0, 1.0))
         self.material.set_shininess(1)
         self.material.set_specular(VBase4(0.5, 0.0, 0.0, 1.0))
@@ -1060,14 +1060,8 @@ class Surface(Body):
             '''m.set_shader_input('colorTexture', tex)
             m.set_shader_input('nightTesture', tex)
             m.set_shader_input('glossTexture', tex)'''
-        self.load_shaders()
 
     def load_shaders(self):
-        '''shaders = BetterShader.load('Shader/Planet/surface_vertex.glsl',
-                                    'Shader/Planet/surface_fragment.glsl',
-                                    '',
-                                    "Shader/DefaultObjectShader/tesscontrol.glsl",
-                                    "Shader/DefaultObjectShader/tesseval.glsl")'''
         shaders = Shader.load(Shader.SL_GLSL,
                               'Shader/Planet/surface_vertex.glsl',
                               'Shader/Planet/surface_fragment.glsl',
@@ -1077,7 +1071,7 @@ class Surface(Body):
 
         convertToPatches(self.node_path)
         for m in self.sides:
-            m.set_shader(shaders)
+            m.set_shader(shaders, 51)
 
     def set_texture(self, texture_path):
         """Textures the surface. texture_path is a string in the same format as
@@ -1104,6 +1098,7 @@ class Surface(Body):
             diffuse.setMinfilter(Texture.FTLinearMipmapLinear)
             diffuse.setAnisotropicDegree(4)
             self.sides[i].set_texture(diffuse)
+            continue
             normal = sandbox.base.loader.loadTexture('Data/Textures/EmptyNormalTexture.png')
             normalts = TextureStage('normalts')
             self.sides[i].set_texture(normalts, normal)
