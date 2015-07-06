@@ -29,6 +29,7 @@ class LightingPass(RenderPass):
             "data1": "DeferredScenePass.data1",
             "data2": "DeferredScenePass.data2",
             "data3": "DeferredScenePass.data3",
+            "depth": "DeferredScenePass.depth",
 
             # GI and occlusion
             "giDiffuseTex": ["GlobalIlluminationPass.diffuseResult", "Variables.emptyTextureWhite"],

@@ -29,7 +29,6 @@ class AmbientOcclusionPass(RenderPass):
         }
 
     def create(self):
-        print "AO GLob:", Globals.base
         self.target = RenderTarget("AmbientOcclusion")
         self.target.setHalfResolution()
         self.target.addColorTexture()

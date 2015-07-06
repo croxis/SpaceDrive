@@ -120,6 +120,10 @@ class Scattering(DebugObject):
             layers=1)
         self.targets['irradianceE'].setShaderInput('factor1', 0.0)
         self.targets['irradianceE'].setShaderInput('factor2', 0.0)
+
+        self.targets['irradianceE'].setShaderInput('source1', Texture())
+        self.targets['irradianceE'].setShaderInput('source2', Texture())
+
         self._renderOneShot('irradianceE')
 
         # Copy delta scattering into inscatter texture S
@@ -302,7 +306,6 @@ class Scattering(DebugObject):
             self.error("Scattering is already computed! You can only do this once")
             return
         self.debug("Precomputing ..")
-        print "Precompute globals check", Globals.base
         self._executePrecompute()
 
     def setSettings(self, settings):

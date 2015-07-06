@@ -21,6 +21,9 @@ uniform sampler2D data2;
 uniform sampler2D data3;
 uniform sampler2D depth;
 
+
+
+
 // Light computation inputs
 uniform sampler2D shadowedLightsTex;
 uniform sampler2D unshadowedLightsTex;
@@ -155,7 +158,8 @@ void main() {
     #endif
 
     // We can skip lighting for the skybox
-    if (isSkybox && false) {
+
+    if (isSkybox) {
 
         // result += 3.0 * material.baseColor;
 
@@ -249,6 +253,9 @@ void main() {
     #endif
 
 
+    #if defined(DEBUG_RM_GI_AMBIENT)
+        result = ambient;
+    #endif
 
     lightingResult = vec4(result, 0.0 );
 }
