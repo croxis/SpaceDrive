@@ -16,7 +16,7 @@ from panda3d.core import VBase4, Vec3
 
 import sandbox
 
-from .utils import convertToPatches
+from .utils import convertToPatches, shape_generator_advanced
 
 
 #you cant normalize in-place so this is a helper function
@@ -995,28 +995,14 @@ class Body(object):
         is called for specific body type inits."""
         self.name = name
         self.node_path = NodePath(name)
-        self.sides = []
-        for i in range(0, 6):
-            m = create_side(self.node_path, debug, invert=True)
-            m.set_scale(scale)
-            self.sides.append(m)
-
-        '''The side meshes are rotated here. They are moved to their correct
-        position in the shader.'''
-        self.sides[0].set_hpr(90, 90, 0)
-        self.sides[1].set_hpr(-90, 90, 0)
-        self.sides[2].set_hpr(0, 0, 0)
-        self.sides[3].set_hpr(0, 180, 0)
-        self.sides[4].set_hpr(0, 90, 0)
-        self.sides[5].set_hpr(180, 90, 0)
         base.accept('h', self.node_path.hide)
         base.accept('j', self.node_path.show)
-        self.init()
+        self.init(scale, debug)
 
     def get_name(self):
         return self.name
 
-    def init(self):
+    def init(self, scale=1, debug=False):
         raise NotImplementedError()
 
     def get_pos(self):
@@ -1041,11 +1027,26 @@ class Body(object):
         self.node_path.set_shader_input(*args, **kwargs)
 
 
-class Surface(Body):
+class BitmapSurface(Body):
     """Planet is a parent nodepath that the 6 side mesh nodepaths will parent
-    to. Planet can be moved, scale, and rotated with no problems"""
+    to. Planet can be moved, scale, and rotated with no problems. This uses
+    6 normalized planes for cubemapping."""
 
-    def init(self):
+    def init(self, scale=1, debug=False):
+        self.sides = []
+        for i in range(0, 6):
+            m = create_side(self.node_path, debug, invert=True)
+            m.set_scale(scale)
+            self.sides.append(m)
+
+        '''The side meshes are rotated here. They are moved to their correct
+        position in the shader.'''
+        self.sides[0].set_hpr(90, 90, 0)
+        self.sides[1].set_hpr(-90, 90, 0)
+        self.sides[2].set_hpr(0, 0, 0)
+        self.sides[3].set_hpr(0, 180, 0)
+        self.sides[4].set_hpr(0, 90, 0)
+        self.sides[5].set_hpr(180, 90, 0)
         # create sane material defaults
         self.material = Material()
         self.material.set_diffuse(VBase4(1.0, 1.0, 1.0, 1.0))
@@ -1146,6 +1147,65 @@ class Surface(Body):
         self.material.set_shininess(n)
 
 
+class ProceduralSurface(Body):
+    """Planet is a parent nodepath that the icosphere will parent
+    to. Planet can be moved, scale, and rotated with no problems. This uses
+    an icosphere."""
+    def init(self, scale=1, debug=False):
+        self.node_path = shape_generator_advanced.IcoSphere(1, 5)
+        # create sane material defaults
+        self.material = Material()
+        self.material.set_diffuse(VBase4(1.0, 1.0, 1.0, 1.0))
+        self.material.set_ambient(VBase4(1.0, 1.0, 1.0, 1.0))
+        self.material.set_emission(VBase4(0.0, 0.0, 0.0, 1.0))
+        self.material.set_shininess(1)
+        self.material.set_specular(VBase4(0.5, 0.0, 0.0, 1.0))
+
+        self.node_path.set_material(self.material)
+
+    def load_shaders(self):
+        shaders = Shader.load(Shader.SL_GLSL,
+                              'Shader/Planet/surface_vertex.glsl',
+                              'Shader/Planet/surface_fragment.glsl',
+                              '',
+                              "Shader/DefaultShaders/Opaque/tesscontrol.glsl",
+                              "Shader/DefaultShaders/Opaque/tesseval.glsl")
+
+        convertToPatches(self.node_path)
+        self.node_path.set_shader(shaders, 51)
+
+    def set_ambient(self, r, g, b, a):
+        self.material.set_ambient(
+            VBase4(float(r), float(g), float(b), float(a)))
+
+    def set_diffuse(self, r, g, b, a):
+        self.material.set_diffuse(
+            VBase4(float(r), float(g), float(b), float(a)))
+
+    def set_specular(self, r, g, b, a):
+        self.material.set_specular(
+            VBase4(float(r), float(g), float(b), float(a)))
+
+    def set_shininess(self, n):
+        self.material.set_shininess(n)
+
+
+class ProceduralGasGiant(ProceduralSurface):
+    """Planet is a parent nodepath that the icosphere will parent
+    to. Planet can be moved, scale, and rotated with no problems. This uses
+    an icosphere."""
+    def load_shaders(self):
+        shaders = Shader.load(Shader.SL_GLSL,
+                              'Shader/Planet/gas_giant_vertex.glsl',
+                              'Shader/Planet/gas_giant_fragment.glsl',
+                              '',
+                              "Shader/DefaultShaders/Opaque/tesscontrol.glsl",
+                              "Shader/DefaultShaders/Opaque/tesseval.glsl")
+
+        convertToPatches(self.node_path)
+        self.node_path.set_shader(shaders, 51)
+
+
 def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False):
     card_maker = CardMaker(name)
     card_maker.set_frame(-1, 1, -1, 1)
@@ -1191,4 +1251,4 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
 
 
 def make_planet(name='planet', scale=1, debug=False):
-    return Surface(name, scale, debug)
+    return BitmapSurface(name, scale, debug)
