@@ -55,8 +55,9 @@ void main() {
     m.metallic = metallic;
     m.normal = mixedNormal;
     m.position = vOutput.positionWorld;
-    m.roughness = 0.4;
-    m.specular = 0.8;
+
+    // m.roughness = 0.4;
+    // m.specular = 0.8;
     // m.metallic = 0.0;
 
     // Write the material to the G-Buffer
