@@ -109,10 +109,11 @@ def init_graphics(system=GraphicsSystem,
                   debug_mouse=False):
     """Sets up multipass rendering. Rendering is done in this order:
     Skybox, Suns, Atmospheres, Celestial bodies, ships"""
-    log.warning("TODO: Finish Implement")
+    log.warning("TODO: Finish Graphics Init Implement")
     vfs.mount_loop(os.path.join(os.path.dirname(__file__), 'Shader/'),
-                   'Shader',
-                   VirtualFileSystem.MF_read_only)
+                   'Shader', VirtualFileSystem.MF_read_only)
+    vfs.mount_loop(os.path.join(os.path.dirname(__file__), 'Skybox/'),
+                   'Skybox', VirtualFileSystem.MF_read_only)
     # sandbox.base.camLens.set_far(20000000)
     #sandbox.base.camLens.set_far(2000000)
     #from .renderpipeline.Code.Globals import Globals

@@ -987,7 +987,7 @@ def create_side(parent_nodepath, debug=False, invert=False):
 
 
 class Body(object):
-    """Generic class for normalized cube celestial bodies with NodePath like
+    """Generic class for celestial bodies with NodePath like
     interfaces."""
 
     def __init__(self, name, scale=1, debug=False):
@@ -997,12 +997,12 @@ class Body(object):
         self.node_path = NodePath(name)
         base.accept('h', self.node_path.hide)
         base.accept('j', self.node_path.show)
-        self.init(scale, debug)
+        self.init(scale=scale, debug=debug)
 
     def get_name(self):
         return self.name
 
-    def init(self, scale=1, debug=False):
+    def init(self, scale=1, debug=False, **kargs):
         raise NotImplementedError()
 
     def get_pos(self):
