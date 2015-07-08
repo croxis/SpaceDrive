@@ -126,7 +126,7 @@ void main() {
     vec3 v = normalize(cameraPosition - pixelPos);
     vec3 l = normalize(vec3(0.4,0.7,0.3));
 
-    float roughness = 0.15;
+    float roughness = 0.015;
     // Material fakeTransMat;
     // Light fakeLight;
     // fakeLight.color = vec3(1);
