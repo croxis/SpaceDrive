@@ -36,6 +36,7 @@ class RenderingPipeline(DebugObject):
     It also handles some functions to prepare the scene, e.g. for tesselation.
     """
 
+
     def __init__(self, showbase):
         """ Creates a new pipeline """
         DebugObject.__init__(self, "RenderingPipeline")
@@ -43,7 +44,6 @@ class RenderingPipeline(DebugObject):
         self.settings = None
         self.ready = False
         self.mountManager = MountManager()
-        self.scattering = None
 
     def getMountManager(self):
         """ Returns the mount manager. You can use this to set the
@@ -82,6 +82,12 @@ class RenderingPipeline(DebugObject):
         can cast GI. """
         if self.settings.enableGlobalIllumination:
             self.globalIllum.setTargetLight(lightSource)
+
+    def setScatteringSource(self, lightSource):
+        """ Sets the light source used for the scattering, can be a point or 
+        directional light """
+        if self.settings.enableScattering:
+            self.scattering.setSunLight(lightSource)
 
     def getMainPassBitmask(self):
         """ Returns the camera bit used to render the main scene """
@@ -226,6 +232,10 @@ class RenderingPipeline(DebugObject):
         self.renderPassManager.preRenderUpdate()
         if self.globalIllum:
             self.globalIllum.update()
+
+        if self.scattering:
+            self.scattering.update()
+
         return task.cont
 
     def _updateInputHandles(self):
@@ -281,6 +291,7 @@ class RenderingPipeline(DebugObject):
         texNoise.setMinfilter(SamplerState.FTNearest)
         texNoise.setMagfilter(SamplerState.FTNearest)
         self.renderPassManager.registerStaticVariable("noise4x4", texNoise)
+
 
         # Load the cubemap which is used for point light shadow rendering
         cubemapLookup = self.showbase.loader.loadCubeMap(
@@ -359,9 +370,10 @@ class RenderingPipeline(DebugObject):
             })
             earthScattering.precompute()
             earthScattering.provideInputs()
-            self.scattering = earthScattering
 
             self.scattering = earthScattering
+        else:
+            self.scattering = None
 
     def getScattering(self):
         """ Returns the scattering instance if scattering is enabled, otherwise
@@ -369,6 +381,15 @@ class RenderingPipeline(DebugObject):
         if not self.settings.enableScattering:
             raise Exception("Scattering is not enabled, you can not fetch the scattering instance.")
         return self.scattering
+
+
+    def recreate(self):
+        """ Destroys and recreates the pipeline, preserving all lights """
+        raise NotImplementedError()
+
+    def destroy(self):
+        """ Destroys the pipeline, cleaning up all buffers and textures """
+        raise NotImplementedError()
 
     def create(self):
         """ Creates the pipeline """
@@ -420,6 +441,7 @@ class RenderingPipeline(DebugObject):
 
         # Create render pass matcher
         self.renderPassManager = RenderPassManager()
+
 
         self._precomputeScattering()
 
@@ -482,3 +504,5 @@ class RenderingPipeline(DebugObject):
         # Give the gui a hint when the pipeline is done loading
         if self.guiManager:
             self.guiManager.onPipelineLoaded()
+
+        self.reloadShaders()

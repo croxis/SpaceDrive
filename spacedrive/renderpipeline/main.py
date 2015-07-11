@@ -93,13 +93,14 @@ class Main(ShowBase, DebugObject):
         # self.sceneSource = "Demoscene.ignore/LivingRoom2/LivingRoom.egg"
         # self.sceneSource = "Demoscene.ignore/LostEmpire/Model.egg"
         # self.sceneSource = "Demoscene.ignore/SSLRTest/scene.egg"
-        self.sceneSource = "Demoscene.ignore/BMW/Bmw.egg"
+        # self.sceneSource = "Demoscene.ignore/BMW/Bmw.egg"
         # self.sceneSource = "Demoscene.ignore/OldHouse/Scene.egg"
         # self.sceneSource = "Demoscene.ignore/DemoTerrain/Scene.egg"
         # self.sceneSource = "Demoscene.ignore/TransparencyTest/Scene.egg"
         # self.sceneSource = "Demoscene.ignore/SanMiguel/Scene.bam"
         # self.sceneSource = "Demoscene.ignore/DabrovicSponza/Scene.egg"
-        # self.sceneSource = "Models/LittleHouse/Scene.egg"
+        self.sceneSource = "Demoscene.ignore/Avolition/level5.bam"
+        # self.sceneSource = "Models/LittleHouse/Scene.bam"
 
 
         # This sources are included in the repo
@@ -131,7 +132,7 @@ class Main(ShowBase, DebugObject):
             dirLight.setDirection(dPos)
             dirLight.setShadowMapResolution(2048)
             dirLight.setPos(dPos)
-            dirLight.setColor(Vec3(1, 1, 0.8) * 2.0)
+            dirLight.setColor(Vec3(1.5, 1.2, 0.8) * 2.0)
             # dirLight.setColor(Vec3(0.3))
             dirLight.setPssmTarget(base.cam, base.camLens)
             dirLight.setCastsShadows(True)
@@ -145,6 +146,7 @@ class Main(ShowBase, DebugObject):
 
             # Tell the GI which light casts the GI
             self.renderPipeline.setGILightSource(dirLight)
+            self.renderPipeline.setScatteringSource(dirLight)
 
         # Slider to move the sun
         if self.renderPipeline.settings.displayOnscreenDebugger:
@@ -220,19 +222,22 @@ class Main(ShowBase, DebugObject):
         else:
             self.loadScene()
 
+
     def addDemoLight(self):
         """ Spawns a new light at a random position with a random color """
-        randomRadius = 25.0
+        randomRadius = 90.0
         light = SpotLight()
-        spot = Vec3( (random()-0.5) * randomRadius, (random()-0.5) * randomRadius, 22)
+        # spot = Vec3( (random()-0.5) * randomRadius, (random()-0.5) * randomRadius, 22)
+        spot = self.cam.getPos(self.render)
         light.setPos(spot)
         light.lookAt(Vec3(spot.x,spot.y,0))
         # print "pos is", spot,"look at",Vec3(spot.x,spot.y,0)
-        light.setColor(Vec3( random(), random(), random()) * 0.2)
+        # light.setColor(Vec3( random(), random(), random()) * 0.2)
+        light.setColor(Vec3( 1.0, 0.5, 0.3) * 0.05)
         light.setNearFar(1.0, 50)
         light.setFov(140)
-        # light.setIESProfile("XArrow")
-        light.setIESProfileIndex(randint(0, 30))
+        light.setIESProfile("SoftArrow")
+        # light.setIESProfileIndex(randint(0, 30))
         light.setShadowMapResolution(2048)
         # light.attachDebugNode(render)
         light.setCastsShadows(True)
@@ -242,8 +247,8 @@ class Main(ShowBase, DebugObject):
     def removeDemoLight(self):
         """ Removes the last added demo light if present """
         if len(self.demoLights) > 0:
-            self.renderPipeline.removeLight(self.demoLights[0])
-            del self.demoLights[0]
+            self.renderPipeline.removeLight(self.demoLights[-1])
+            del self.demoLights[-1]
 
 
     def update(self, task):
@@ -412,7 +417,7 @@ class Main(ShowBase, DebugObject):
         if radial:
             rawValue = rawValue / 100.0 * 2.0 * math.pi
             dPos = Vec3(
-                math.sin(rawValue) * 30.0, math.cos(rawValue) * 30.0, 30)
+                math.sin(rawValue) * 30.0, math.cos(rawValue) * 30.0, 30.0)
             # dPos = Vec3(100, 100, (rawValue - 50) * 10.0)
         else:
             dPos = Vec3(30, (rawValue - 50) * 1.5, 0)
@@ -421,7 +426,7 @@ class Main(ShowBase, DebugObject):
 
         if abs(diff) > 0.0001:
             if hasattr(self, "dirLight"):
-                self.dirLight.setPos(dPos)
+                self.dirLight.setPos(dPos * 10000000000.0)
                 self.dirLight.setDirection(dPos)
 
     def toggleSceneWireframe(self):

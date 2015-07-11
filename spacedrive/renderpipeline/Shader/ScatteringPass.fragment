@@ -21,17 +21,15 @@ void main() {
     vec3 cameraPositionZ = cameraPosition;
 
     vec3 wsPosition = texture(wsPositionTex, texcoord).xyz;
-    vec3 sunVector = normalize(vec3(0.5,0.7,0.5));
     vec3 baseColor = texture(basecolorTex, texcoord).xyz;
 
-    // wsPosition.z *= 50.0;
-    cameraPositionZ.z = wsPosition.z;
+    #if defined(USE_SKYBOX_SCATTERING)
+        cameraPositionZ.z = wsPosition.z;
+    #endif
 
     vec3 viewDir = normalize(wsPosition - cameraPosition);
     vec3 attenuation;
     float irradianceFactor;
-
-
 
     // There should be a more elegant way, but for now it works. I don't want to
     // waste a gbuffer flag for marking the skybox.r
@@ -40,19 +38,13 @@ void main() {
 
     if (isSkybox) {
         wsPosition *= 1e10;
-    } else {
-        // viewDir = normalize(wsPosition - cameraPositionZ);
-
-        // wsPosition *= 1e5;
     }
-
 
     vec3 scatteringResult = scatteringComputeInscatteredLight(
         scatteringOptions,
         wsPosition, 
         cameraPositionZ,
         viewDir, 
-        sunVector,
         inscatterSampler,
         baseColor,
         isSkybox,
@@ -60,6 +52,7 @@ void main() {
         irradianceFactor);
 
 
+    #if 1
 
     scatteringResult *= 4.5;
 
@@ -75,14 +68,15 @@ void main() {
     }
 
 
-    #if defined(DEBUG_VISUALIZATION_ACTIVE)
+    #if defined(DEBUG_VISUALIZATION_ACTIVE) && !defined(DEBUG_RM_SCATTERING)
         scatteringResult = vec3(0);
     #endif
     // scatteringResult = vec3(attenuation);
 
-
         // scatteringResult = pow(scatteringResult, vec3(1.0 / 2.2) ); 
 
+    #endif
+        
 
     result = vec4(scatteringResult, 1.0);
     // result = texture(sampler, texcoord);

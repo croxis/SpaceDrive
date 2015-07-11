@@ -103,7 +103,8 @@ void main() {
     float pixelDepth = texelFetch(depth, screenCoord,0 ).x;
     float reflectionFactor = saturate( (0.5 - material.roughness) * 5.0 ) ;
 
-
+    float fogFactor = smoothstep(0.0, 1.0, distance(cameraPosition, material.position) / 30.0);
+    // fogFactor = 0.0;
 
     #if defined(USE_GLOBAL_ILLUMINATION) && !defined(DEBUG_DISABLE_GI)
 
@@ -226,7 +227,7 @@ void main() {
         exposure = texelFetch(dynamicExposureTex, ivec2(0), 0).x;
     #endif
 
-    #if !defined(DEBUG_VISUALIZATION_ACTIVE)
+    #if !defined(DEBUG_VISUALIZATION_ACTIVE) || defined(DEBUG_RM_LIGHTING)
         result = 1.0 - exp(-exposure * result);
     #endif
 
@@ -253,16 +254,19 @@ void main() {
         result = material.normal;
     #endif
 
-
     #if defined(DEBUG_RM_GI_AMBIENT)
         result = ambient;
     #endif
-
 
     #if defined(DEBUG_RM_OCCLUSION)
         result = vec3(mixedOcclusionFactor);
     #endif
 
+    #if defined(DEBUG_RM_SCATTERING)
+        result = vec3(scatteringResult);
+    #endif
+
+    result = mix(result, vec3(0), fogFactor);
 
     lightingResult = vec4(result, 0.0 );
 }
