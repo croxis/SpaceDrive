@@ -192,7 +192,7 @@ void main() {
         glassBorderFactor = pow(glassBorderFactor, 3.0);
 
         // composedColor = vec3(glassBorderFactor);
-        composedColor -= glassBorderFactor * 0.2;
+        //composedColor -= glassBorderFactor * 0.2;
 
 
         vec3 refractionVector = refract(v, n, 1.0);
