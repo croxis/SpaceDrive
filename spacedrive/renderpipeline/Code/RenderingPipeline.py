@@ -6,18 +6,19 @@ from panda3d.core import CSYupRight, TransformState, Mat4, CSZupRight, BitMask32
 from panda3d.core import Texture, UnalignedLMatrix4f, Vec3, PTAFloat, TextureStage
 
 from DebugObject import DebugObject
-from MountManager import MountManager
-from PipelineSettingsManager import PipelineSettingsManager
 from SystemAnalyzer import SystemAnalyzer
-from Globals import Globals
-from RenderPassManager import RenderPassManager
-from LightManager import LightManager
-from AmbientOcclusionManager import AmbientOcclusionManager
-from GlobalIllumination import GlobalIllumination
-from AntialiasingManager import AntialiasingManager
 from Scattering import Scattering
-from TransparencyManager import TransparencyManager
+from Globals import Globals
+from GlobalIllumination import GlobalIllumination
 
+from PipelineSettingsManager import PipelineSettingsManager
+from LightManager import LightManager
+from MountManager import MountManager
+from RenderPassManager import RenderPassManager
+from AmbientOcclusionManager import AmbientOcclusionManager
+from AntialiasingManager import AntialiasingManager
+from TransparencyManager import TransparencyManager
+from DynamicObjectsManager import DynamicObjectsManager
 from GUI.PipelineGuiManager import PipelineGuiManager
 
 from RenderPasses.InitialRenderPass import InitialRenderPass
@@ -27,7 +28,7 @@ from RenderPasses.LightingPass import LightingPass
 from RenderPasses.DynamicExposurePass import DynamicExposurePass
 from RenderPasses.FinalPostprocessPass import FinalPostprocessPass
 from RenderPasses.VolumetricLightingPass import VolumetricLightingPass
-
+from RenderPasses.SSLRPass import SSLRPass
 
 class RenderingPipeline(DebugObject):
 
@@ -35,7 +36,6 @@ class RenderingPipeline(DebugObject):
     process, as well as creating the managers for the different effects/passes.
     It also handles some functions to prepare the scene, e.g. for tesselation.
     """
-
 
     def __init__(self, showbase):
         """ Creates a new pipeline """
@@ -147,6 +147,18 @@ class RenderingPipeline(DebugObject):
         object """
         np.setTag("ShadowPassShader", "Transparent")
 
+    def registerDynamicObject(self, np):
+        """ Registers a new dynamic object to the pipeline. Every object which moves
+        or transforms its vertices (like actors) has to be registered to make sure
+        the velocity buffers are correct. When the object is deleted, 
+        unregisterDynamicObject should be called. """
+        self.dynamicObjectsManager.registerObject(np)
+
+    def unregisterDynamicObject(self, np):
+        """ Unregisters a dynamic object which was previously registered with
+        registerDynamicObject """
+        self.dynamicObjectsManager.unregisterObject(np)
+
     def getDefaultSkybox(self, scale=40000):
         """ Loads the default skybox, scaling it by the given scale factor. Note
         that there should always be a noticeable difference between the skybox
@@ -232,9 +244,9 @@ class RenderingPipeline(DebugObject):
         self.renderPassManager.preRenderUpdate()
         if self.globalIllum:
             self.globalIllum.update()
-
         if self.scattering:
             self.scattering.update()
+        self.dynamicObjectsManager.update()
 
         return task.cont
 
@@ -462,6 +474,11 @@ class RenderingPipeline(DebugObject):
             self.dynamicExposurePass = DynamicExposurePass(self)
             self.renderPassManager.registerPass(self.dynamicExposurePass)
 
+        # Add SSLR pass
+        if self.settings.enableSSLR:
+            self.sslrPass = SSLRPass()
+            self.renderPassManager.registerPass(self.sslrPass)
+
         # Add volumetric lighting
         # self.volumetricLightingPass = VolumetricLightingPass()
         # self.renderPassManager.registerPass(self.volumetricLightingPass)
@@ -474,6 +491,7 @@ class RenderingPipeline(DebugObject):
         self.occlusionManager = AmbientOcclusionManager(self)
         self.lightManager = LightManager(self)
         self.antialiasingManager = AntialiasingManager(self)
+        self.dynamicObjectsManager = DynamicObjectsManager(self)
         
         if self.settings.useTransparency:
             self.transparencyManager = TransparencyManager(self)

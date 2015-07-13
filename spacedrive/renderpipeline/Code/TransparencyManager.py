@@ -7,6 +7,7 @@ from Globals import Globals
 from RenderTarget import RenderTarget
 from MemoryMonitor import MemoryMonitor
 from .RenderPasses.TransparencyPass import TransparencyPass
+from .RenderPasses.TransparencyShadePass import TransparencyShadePass
 
 class TransparencyManager(DebugObject):
 
@@ -26,13 +27,18 @@ class TransparencyManager(DebugObject):
         # This stores the maximum amount of transparent pixels which can be on the
         # screen at one time. If the amount of pixels exceeds this value, strong
         # artifacts will occur!
-        self.maxPixelCount = 1920 * 1080 * 2
+        self.maxPixelCount = 1920 * 1080 * 3
         self.initTransparencyPass()
 
     def initTransparencyPass(self):
         """ Creates the pass which renders the transparent objects into the scene """
         self.transparencyPass = TransparencyPass()
         self.pipeline.getRenderPassManager().registerPass(self.transparencyPass)
+
+        self.transparencyShadePass = TransparencyShadePass()
+        self.transparencyShadePass.setBatchSize(self.pipeline.settings.transparencyBatchSize)
+        self.pipeline.getRenderPassManager().registerPass(self.transparencyShadePass)
+        
 
         # Create the atomic counter which stores the amount of rendered transparent
         # pixels. For now this a 1x1 texture, as atomic counters are not implemented.
@@ -76,8 +82,12 @@ class TransparencyManager(DebugObject):
         self.pipeline.getRenderPassManager().registerDefine("USE_TRANSPARENCY", 1)
         self.pipeline.getRenderPassManager().registerDefine("MAX_TRANSPARENCY_LAYERS", 
             self.pipeline.settings.maxTransparencyLayers)
+
         self.pipeline.getRenderPassManager().registerDefine("TRANSPARENCY_RANGE", 
             self.pipeline.settings.maxTransparencyRange)
+
+        self.pipeline.getRenderPassManager().registerDefine("TRANSPARENCY_BATCH_SIZE", 
+            self.pipeline.settings.transparencyBatchSize)
 
         self.pixelCountBuffer.setClearColor(Vec4(0, 0, 0, 0))
         self.spinLockBuffer.setClearColor(Vec4(0, 0, 0, 0))

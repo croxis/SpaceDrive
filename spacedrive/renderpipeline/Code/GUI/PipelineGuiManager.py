@@ -109,7 +109,7 @@ class PipelineGuiManager(DebugObject):
         if s.antialiasingTechnique != "None":
             register_feature("Anti-Aliasing", "ft_ANTIALIASING")
 
-        # register_feature("Shadows", "ft_SHADOWS")
+        register_feature("Shadows", "ft_SHADOWS")
         register_feature("Correct color", "ft_COLOR_CORRECTION")
         
         if s.renderShadows:
@@ -127,6 +127,7 @@ class PipelineGuiManager(DebugObject):
         # register_mode("h Debug", "rm_SSaLR")
 
         if s.enableSSLR:
+            register_mode("SSLR", "rm_SSLR")
             register_feature("SSLR", "ft_SSLR")
 
 

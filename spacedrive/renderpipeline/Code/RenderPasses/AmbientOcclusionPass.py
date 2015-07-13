@@ -25,7 +25,11 @@ class AmbientOcclusionPass(RenderPass):
             "mainCam": "Variables.mainCam",
             "noiseTexture": "Variables.noise4x4",
             "viewSpaceNormals": "ViewSpacePass.normals",
-            "viewSpacePosition": "ViewSpacePass.position"
+            "viewSpacePosition": "ViewSpacePass.position",
+            "worldSpaceNormals": "DeferredScenePass.wsNormal",
+            "worldSpacePosition": "DeferredScenePass.wsPosition",
+            "depthTex": "DeferredScenePass.depth",
+            "cameraPosition": "Variables.cameraPosition",
         }
 
     def create(self):

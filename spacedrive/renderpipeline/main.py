@@ -88,7 +88,7 @@ class Main(ShowBase, DebugObject):
         # self.sceneSource = "Demoscene.ignore/MasterSword/Scene.egg"
         # self.sceneSource = "Demoscene.ignore/MasterSword/Scene2.egg.bam"
         # self.sceneSource = "Demoscene.ignore/Couch2/Scene.egg"
-        # self.sceneSource = "Demoscene.ignore/Couch/couch.egg.bam"
+        self.sceneSource = "Demoscene.ignore/Couch/couch.egg.bam"
         # self.sceneSource = "Demoscene.ignore/LivingRoom/LivingRoom.egg"
         # self.sceneSource = "Demoscene.ignore/LivingRoom2/LivingRoom.egg"
         # self.sceneSource = "Demoscene.ignore/LostEmpire/Model.egg"
@@ -99,7 +99,7 @@ class Main(ShowBase, DebugObject):
         # self.sceneSource = "Demoscene.ignore/TransparencyTest/Scene.egg"
         # self.sceneSource = "Demoscene.ignore/SanMiguel/Scene.bam"
         # self.sceneSource = "Demoscene.ignore/DabrovicSponza/Scene.egg"
-        self.sceneSource = "Demoscene.ignore/Avolition/level5.bam"
+        # self.sceneSource = "Demoscene.ignore/Avolition/level5.bam"
         # self.sceneSource = "Models/LittleHouse/Scene.bam"
 
 
@@ -113,11 +113,12 @@ class Main(ShowBase, DebugObject):
         # self.sceneSource = "Models/VertexPerformanceTest/Scene.egg"
         # self.sceneSource = "Models/Buddha/Buddha.bam"
         # self.sceneSource = "Toolkit/Blender Material Library/Buddha.bam"
+        # self.sceneSource = "Toolkit/Blender Material Library/MaterialLibrary.egg"
         
 
         # Select surrounding scene here
-        self.sceneSourceSurround = None
-        # self.sceneSourceSurround = "Demoscene.ignore/Couch/Surrounding.egg"
+        # self.sceneSourceSurround = None
+        self.sceneSourceSurround = "Demoscene.ignore/Couch/Surrounding.egg"
         # self.sceneSourceSurround = "Demoscene.ignore/LivingRoom/LivingRoom.egg"
         # self.sceneSourceSurround = "Models/LittleHouse/couch.bam"
 
@@ -132,7 +133,7 @@ class Main(ShowBase, DebugObject):
             dirLight.setDirection(dPos)
             dirLight.setShadowMapResolution(2048)
             dirLight.setPos(dPos)
-            dirLight.setColor(Vec3(1.5, 1.2, 0.8) * 2.0)
+            dirLight.setColor(Vec3(1.5, 1.2, 0.8))
             # dirLight.setColor(Vec3(0.3))
             dirLight.setPssmTarget(base.cam, base.camLens)
             dirLight.setCastsShadows(True)
@@ -193,17 +194,16 @@ class Main(ShowBase, DebugObject):
 
         for x in xrange(0):
             spotLight = SpotLight()
-            spotLight.setColor(Vec3(0.5, 0.8, 1.0) * 0.2)
-            lightPos = Vec3(x * 3.0 - 7.0, 0, 6)
+            spotLight.setColor(Vec3(0.5, 0.8, 1.0) * 0.3)
 
-            lightPos = Vec3(math.sin(x/19.0 * 6.28) * 7.0, math.cos(x/19.0 * 6.28) * 7.0, 10.0)
+            lightPos = Vec3(math.sin(x/10.0 * 6.28) * 16.0, math.cos(x/10.0 * 6.28) * 16.0, 29.0)
 
             spotLight.setPos(lightPos)
             spotLight.lookAt(lightPos - Vec3(0, 0, 1))
             spotLight.setFov(90)
-            spotLight.setShadowMapResolution(512)
+            spotLight.setShadowMapResolution(1024)
             spotLight.setCastsShadows(True)
-            spotLight.setNearFar(2.0, 15.0)
+            spotLight.setNearFar(2.0, 60.0)
             spotLight.setIESProfile("AreaLight")
             self.renderPipeline.addLight(spotLight)
             # spotLight.attachDebugNode(render)
@@ -289,9 +289,9 @@ class Main(ShowBase, DebugObject):
             self.debug("Loading Surround-Scene '" + self.sceneSourceSurround + "'")
             self.sceneSurround = self.loader.loadModel(self.sceneSourceSurround)
             self.sceneSurround.reparentTo(self.scene)
-            self.sceneSurround.setScale(0.7)
-            self.sceneSurround.setH(180)
-            self.sceneSurround.setPos(0, -4.7, 0.73)
+            # self.sceneSurround.setScale(0.7)
+            # self.sceneSurround.setH(180)
+            # self.sceneSurround.setPos(0, -4.7, 0.73)
 
         seed(1)
 
@@ -316,17 +316,19 @@ class Main(ShowBase, DebugObject):
                         copiedObj.setPos(x*1.5 + random(), y*1.5 + random(), random()*5.0 + 0.4)
 
         # Find transparent objects and mark them as transparent
-        self.transpObjRoot = render.attachNewNode("transparentObjects")
-        matches = self.scene.findAllMatches("**/T__*")
-        if matches:
-            for match in matches:
-                # match.reparentTo(self.transpObjRoot)
-                self.transparentObjects.append(match)
-                self.renderPipeline.prepareTransparentObject(match)
-                # match.listTags()
-                match.setAttrib(CullFaceAttrib.make(CullFaceAttrib.M_none))
-                # match.setColorScale(1,0,1, 1)
-                # match.hide(self.renderPipeline.getShadowPassBitmask())
+        if self.renderPipeline.settings.useTransparency:
+            self.transpObjRoot = render.attachNewNode("transparentObjects")
+            matches = self.scene.findAllMatches("**/T__*")
+            if matches:
+                for match in matches:
+                    # match.reparentTo(self.transpObjRoot)
+                    self.transparentObjects.append(match)
+                    self.renderPipeline.prepareTransparentObject(match)
+                    # match.listTags()
+                    match.setAttrib(CullFaceAttrib.make(CullFaceAttrib.M_none))
+                    # match.setColorScale(1,0,1, 1)
+                    # match.hide(self.renderPipeline.getShadowPassBitmask())
+                
         # Wheter to use a ground plane
         self.usePlane = False
         self.sceneWireframe = False
@@ -417,7 +419,7 @@ class Main(ShowBase, DebugObject):
         if radial:
             rawValue = rawValue / 100.0 * 2.0 * math.pi
             dPos = Vec3(
-                math.sin(rawValue) * 30.0, math.cos(rawValue) * 30.0, 30.0)
+                math.sin(rawValue) * 30.0, math.cos(rawValue) * 30.0, 12.0)
             # dPos = Vec3(100, 100, (rawValue - 50) * 10.0)
         else:
             dPos = Vec3(30, (rawValue - 50) * 1.5, 0)

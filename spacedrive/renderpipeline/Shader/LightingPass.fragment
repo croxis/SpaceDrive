@@ -50,10 +50,6 @@ uniform vec3 cameraPosition;
 // Outputs
 layout(location = 0) out vec4 lightingResult;
 
-// Output reflection vector for sslr
-#if defined(USE_SSLR)
-layout(location = 1) out vec4 sslrDataResult;
-#endif
 
 // Scattering result
 #if defined(USE_SCATTERING)
@@ -104,7 +100,7 @@ void main() {
     float reflectionFactor = saturate( (0.5 - material.roughness) * 5.0 ) ;
 
     float fogFactor = smoothstep(0.0, 1.0, distance(cameraPosition, material.position) / 30.0);
-    // fogFactor = 0.0;
+    fogFactor = 0.0;
 
     #if defined(USE_GLOBAL_ILLUMINATION) && !defined(DEBUG_DISABLE_GI)
 
@@ -205,30 +201,30 @@ void main() {
 
         // Ambient / Reflections
         ambient = computeAmbient(material, giDiffuseColor, giSpecularColor, 
-            mixedOcclusionFactor, viewVector, wsNormal);    
+            mixedOcclusionFactor, viewVector);    
         result += ambient;
 
     }
 
     // result *= texture(volumetricLightingTex, texcoord).x;
 
-    #if defined(USE_SSLR)
-        // SSLR Precomputation data
-        vec3 reflectionVector = normalize(reflect(viewVector, material.normal));
-        sslrDataResult = vec4(reflectionVector, reflectionFactor);
-    #endif
+    float sslrFactor = material.specular * (1.0 - material.roughness);
 
-    // SRGB
-    result = pow(result, vec3(1.0 / 2.2) ); 
-    float exposure = 1.0;
+    #if !defined(USE_TRANSPARENCY)
+        // SRGB
+        result = pow(result, vec3(1.0 / 2.2) );
+         
+        float exposure = 1.0;
 
-    // Dynamic Exposure
-    #if defined(USE_DYNAMIC_EXPOSURE)
-        exposure = texelFetch(dynamicExposureTex, ivec2(0), 0).x;
-    #endif
+        // Dynamic Exposure
+        #if defined(USE_DYNAMIC_EXPOSURE)
+            exposure = texelFetch(dynamicExposureTex, ivec2(0), 0).x;
+        #endif
 
-    #if !defined(DEBUG_VISUALIZATION_ACTIVE) || defined(DEBUG_RM_LIGHTING)
-        result = 1.0 - exp(-exposure * result);
+        #if !defined(DEBUG_VISUALIZATION_ACTIVE) || defined(DEBUG_RM_LIGHTING)
+            result = 1.0 - exp(-exposure * result);
+        #endif
+
     #endif
 
 
@@ -268,5 +264,5 @@ void main() {
 
     result = mix(result, vec3(0), fogFactor);
 
-    lightingResult = vec4(result, 0.0 );
+    lightingResult = vec4(result, isSkybox ? 0.0 : sslrFactor);
 }
