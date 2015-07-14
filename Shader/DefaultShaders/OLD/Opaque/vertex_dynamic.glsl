@@ -29,7 +29,9 @@ uniform mat4 p3d_ModelViewProjectionMatrix;
 // We need this for the velocity
 uniform mat4 lastMVP;
 
-uniform layout(rgba32f) imageBuffer DynamicObjectVtxBuffer;
+#if defined(IS_DYNAMIC)
+    uniform layout(rgba32f) imageBuffer DynamicObjectVtxBuffer;
+#endif
 
 void main() {
 

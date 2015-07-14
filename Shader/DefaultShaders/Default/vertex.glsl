@@ -1,4 +1,4 @@
-#version 410
+#version 420
 
 #pragma include "Includes/Configuration.include"
 #pragma include "Includes/Structures/VertexOutput.struct"
@@ -26,6 +26,17 @@ uniform mat4 p3d_ModelViewProjectionMatrix;
 // We need this for the velocity
 uniform mat4 lastMVP;
 
+
+#if defined(IS_DYNAMIC)
+    // Vertex index
+    in int dovindex;
+
+    // Vertex buffers
+    uniform layout(rgba32f) imageBuffer DynamicObjectVtxBuffer;
+#endif
+
+#pragma ENTRY_POINT SHADER_IN_OUT
+
 void main() {
 
     // Transform normal to world space
@@ -42,12 +53,23 @@ void main() {
     vOutput.materialSpecular = p3d_Material.specular;
     vOutput.materialAmbient = p3d_Material.ambient.z;
 
+    vec3 lastPosWorld = vOutput.positionWorld;
+
+    // Read last frame vertex position and store current position
+    #if defined(IS_DYNAMIC)
+        lastPosWorld = imageLoad(DynamicObjectVtxBuffer, dovindex).xyz;
+        imageStore(DynamicObjectVtxBuffer, dovindex, vec4(vOutput.positionWorld, 1));
+    #endif
+
     // Compute velocity in vertex shader, but it's important
     // to move the w-divide to the fragment shader
-    vOutput.lastProjectedPos = lastMVP * vec4(vOutput.positionWorld, 1) * vec4(1,1,1,2);
+    vOutput.lastProjectedPos = lastMVP * vec4(lastPosWorld, 1) * vec4(1,1,1,2);
+
+    #pragma ENTRY_POINT SHADER_END
 
     // Transform vertex to window space
     // Only required when not using tesselation shaders
     gl_Position = p3d_ModelViewProjectionMatrix * p3d_Vertex;
+
 }
 

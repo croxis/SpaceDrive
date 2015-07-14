@@ -69,7 +69,9 @@ class App(ShowBase):
         self.actorModel.reparentTo(self.actor)
         self.actorModel.loop("walk")
 
-        self.renderPipeline.registerDynamicObject(self.actorModel)
+        self.renderPipeline.setEffect(self.actorModel, "Effects/Default/Default.effect", {
+            "dynamic": True
+            })
 
         self.accept("w", self.setMovementX, [1])
         self.accept("w-repeat", self.setMovementX, [1])

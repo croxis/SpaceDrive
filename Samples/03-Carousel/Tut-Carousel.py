@@ -70,6 +70,8 @@ class World(ShowBase):
     self.renderPipeline.onSceneInitialized()
 
 
+
+
     #This creates the on screen title that is in every tutorial
     self.title = OnscreenText(text="Panda3D: Tutorial 2 - Carousel",
                               style=1, fg=(1,1,1,1),
@@ -86,6 +88,12 @@ class World(ShowBase):
                                        #carousel into motion
 
     self.accept("r", self.reloadShader)
+ 
+    # As the model is moving, we have to register it as a dynamic object
+    for node in [self.carousel, self.lights1, self.lights2]:
+      self.renderPipeline.setEffect(node, "Effects/Default/Default.effect", {
+          "dynamic": True
+        })
 
 
   def reloadShader(self):
