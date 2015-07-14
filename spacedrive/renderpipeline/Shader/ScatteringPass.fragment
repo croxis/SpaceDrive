@@ -37,7 +37,7 @@ void main() {
     bool isSkybox = distance(wsPosModified, cameraPosition) > SKYBOX_BEGIN;
     
 
-    wsPosModified *= 1e10;
+    wsPosModified *= 1e20;
     if (isSkybox) {
         // wsPosition *= 1e10;
     }
@@ -61,7 +61,7 @@ void main() {
 
 
     if (!isSkybox) {
-        float fogFactor = max(0.0, distance(cameraPosition, wsPosition) - 25.0) / 800.0;
+        float fogFactor = max(0.0, distance(cameraPosition, wsPosition) - 50.0) / 1500.0;
         // scatteringResult *= 0.2;
         scatteringResult *= 0.3 * fogFactor;
         // scatteringResult *= 0.0;
