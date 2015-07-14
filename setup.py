@@ -39,7 +39,8 @@ setup(name='SpaceDrive',
                          'renderpipeline/Shader/Scattering/*.fragment',
                          'renderpipeline/Shader/Scattering/*.geometry',
                          'renderpipeline/Shader/Scattering/*.vertex',
-                         'renderpipeline/Shader/Skybox/*.glsl',]
+                         'renderpipeline/Shader/Skybox/*.glsl',
+                         'renderpipeline/Shader/TransparencyShade/*.glsl',]
       },
       packages=find_packages(),
       include_package_data=True,
