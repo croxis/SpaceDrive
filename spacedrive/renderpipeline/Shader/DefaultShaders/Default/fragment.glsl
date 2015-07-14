@@ -1,4 +1,4 @@
-#version 410
+#version 420
 
 
 #pragma include "Includes/Structures/VertexOutput.struct"
@@ -20,16 +20,22 @@ uniform sampler2D p3d_Texture3;
 // This include enables us to compute the tangent in the fragment shader
 #pragma include "Includes/TangentFromDDX.include"
 
+
+#if defined(IS_TRANSPARENT)
+    #pragma include "Includes/Transparency.include"
+#endif
+
+#pragma ENTRY_POINT SHADER_IN_OUT
+
+
 void main() {
-
-    // Create a material to store the properties on
-    Material m = getDefaultMaterial();
-
     // Sample the diffuse color
     vec4 sampledDiffuse = texture(p3d_Texture0, vOutput.texcoord);
     
-    // Alpha test
-    // if (sampledDiffuse.a < 0.01) discard;
+    // Binary alpha test
+    #if defined(USE_ALPHA_TEST)
+        if (sampledDiffuse.a < 0.5) discard;
+    #endif
 
     // Sample the other maps
     vec4 sampledNormal  = texture(p3d_Texture1, vOutput.texcoord);
@@ -37,18 +43,31 @@ void main() {
     vec4 sampledRoughness = texture(p3d_Texture3, vOutput.texcoord);
         
     // Extract the material properties
-    float bumpFactor = vOutput.materialDiffuse.w * 0.1;
+    #if defined(USE_NORMAL_MAPPING)
+        float bumpFactor = vOutput.materialDiffuse.w;
+
+        // Merge the detail normal with the vertex normal
+        vec3 detailNormal = sampledNormal.xyz * 2.0 - 1.0;
+        vec3 tangent; vec3 binormal;
+        reconstructTanBin(tangent, binormal);
+
+        vec3 mixedNormal = mergeNormal(detailNormal, bumpFactor, vOutput.normalWorld, tangent, binormal);
+    #else
+        vec3 mixedNormal = vOutput.normalWorld.xyz;
+    #endif
 
     float specularFactor = vOutput.materialSpecular.x;
     float metallic = vOutput.materialSpecular.y;
     float roughnessFactor = vOutput.materialSpecular.z;
 
-    // Merge the detail normal with the vertex normal
-    vec3 detailNormal = sampledNormal.xyz * 2.0 - 1.0;
-    vec3 tangent; vec3 binormal;
-    reconstructTanBin(tangent, binormal);
-
-    vec3 mixedNormal = mergeNormal(detailNormal, bumpFactor, vOutput.normalWorld, tangent, binormal);
+    // Create a material to store the material type dependent properties on it
+    #if defined(IS_TRANSPARENT)
+        TransparentMaterial m = getDefaultTransparentMaterial();
+        m.alpha = 0.4;
+    #else
+        Material m = getDefaultMaterial();
+        m.position = vOutput.positionWorld;
+    #endif
 
     // Store the properties
     m.baseColor = sampledDiffuse.rgb * vOutput.materialDiffuse.rgb;
@@ -56,13 +75,13 @@ void main() {
     m.specular = sampledSpecular.r * specularFactor;
     m.metallic = metallic;
     m.normal = mixedNormal;
-    m.position = vOutput.positionWorld;
 
-    // m.baseColor = sampledNormal.rgb; 
-    // m.roughness = 0.4;
-    m.metallic = 1.0;
-    m.specular = 1.0;
+    #pragma ENTRY_POINT MATERIAL
 
     // Write the material to the G-Buffer
-    renderMaterial(m);
+    #if defined(IS_TRANSPARENT)
+        renderTransparentMaterial(m);
+    #else
+        renderMaterial(m);
+    #endif
 }
