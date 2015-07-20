@@ -45,7 +45,7 @@ class DirectionalLight(Light, DebugObject):
         self.pssmTargetLens = Globals.base.camLens
         self.pssmFarPlane = 150
         self.pssmSplitPow = 2.0
-        self.sunDistance = 700
+        self.sunDistance = 7000
         self.updateIndex = 0
 
         # A directional light is always visible
@@ -197,4 +197,4 @@ class DirectionalLight(Light, DebugObject):
 
     def __repr__(self):
         """ Generates a representative string for this object """
-        return "DirectionalLight[pos=" + str(self.position) + ", dir=" + str(self.direction) + "]"
+        return "DirectionalLight[pos=" + str(self.position) + "]"

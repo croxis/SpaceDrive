@@ -71,7 +71,7 @@ void main() {
     // Render Data
     vec4 currentData = texture(sceneTex, texcoord);
     vec3 currentColor = currentData.xyz;
-    float currentOcclusion = currentData.w; 
+    float currentSSLRFactor = currentData.w; 
 
     #if !defined(DEBUG_DISABLE_TRANSPARENCY)
 
@@ -94,7 +94,7 @@ void main() {
             currentColor = 1.0 - exp(-exposure * currentColor);
         #endif
 
-        colorResult = vec4(currentColor, currentOcclusion);
+        colorResult = vec4(currentColor, currentSSLRFactor);
         return;
     } 
 
@@ -104,7 +104,7 @@ void main() {
     // Transparency does not support debug render modes, so just hide transparent 
     // objects in case a debugmode is active
     // #if defined(DEBUG_VISUALIZATION_ACTIVE)
-    //     colorResult = vec4(currentColor, currentOcclusion);
+    //     colorResult = vec4(currentColor, currentSSLRFactor);
     //     return;
     // #endif
 
@@ -140,14 +140,14 @@ void main() {
         uvec4 data1 = texelFetch(materialDataBuffer, int(fragments[i].pointer)*2);
         uvec4 data2 = texelFetch(materialDataBuffer, int(fragments[i].pointer)*2+1);
         TransparentMaterial tm = unpackTransparentMaterial(data1, data2);
-        tm.baseColor *= 10.0;
+        // tm.baseColor *= 10.0;
 
         if (tm.depth > pixelDepth) continue;
 
         currentColor = currentColor * (1.0-tm.alpha) + tm.baseColor * tm.alpha;
 
-        // Reduces occlusion but still avoids halos
-        currentOcclusion *= saturate(tm.alpha + 0.5);
+        // Reduces sslr 
+        // currentSSLRFactor *= saturate(tm.alpha + 0.5);
 
         renderedLayers += 1;
         lastVelocity = tm.velocity / 255.0;
@@ -169,6 +169,6 @@ void main() {
     #endif
 
 
-    colorResult = vec4(currentColor, currentOcclusion);
+    colorResult = vec4(currentColor, currentSSLRFactor);
 
 }

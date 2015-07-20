@@ -30,7 +30,6 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("defaultReflectionCubemap", str, "Default-0/#.png")
         self._addSetting("ambientCubemapSamples", int, 16)
         self._addSetting("colorLookupTable", str, "Default.png")
-        self._addSetting("enableSSLR", bool, True)
         self._addSetting("cubemapAntialiasingFactor", float, 5.0)
         self._addSetting("useAdaptiveBrightness", bool, True)
         self._addSetting("targetExposure", float, 0.8)
@@ -42,6 +41,12 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("useSkyboxScattering", bool, True)
         self._addSetting("useSkyboxClouds", bool, True)
 
+        # [SSLR]
+        self._addSetting("enableSSLR", bool, True)
+        self._addSetting("sslrUseHalfRes", bool, False)
+        self._addSetting("sslrNumSteps", int, 32)
+        self._addSetting("sslrScreenRadius", float, 0.3)
+
         # [Occlusion]
         self._addSetting("occlusionTechnique", str, "None")
         self._addSetting("occlusionRadius", float, 1.0)
@@ -49,6 +54,7 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("occlusionSampleCount", int, 16)
         self._addSetting("useTemporalOcclusion", bool, True)
         self._addSetting("useLowQualityBlur", bool, False)
+        self._addSetting("useOcclusionNoise", bool, True)
         
         # [Shadows]
         self._addSetting("renderShadows", bool, True)
@@ -69,9 +75,10 @@ class PipelineSettingsManager(SettingsManager):
         self._addSetting("transparencyBatchSize", int, 200)
 
         # [Motion blur]
-        self._addSetting("motionBlurEnabled", bool, True)
+        self._addSetting("enableMotionBlur", bool, False)
         self._addSetting("motionBlurSamples", int, 8)
         self._addSetting("motionBlurFactor", float, 1.0)
+        self._addSetting("motionBlurDilatePixels", float, 10.0)
 
         # [Global Illumination]
         self._addSetting("enableGlobalIllumination", bool, False)

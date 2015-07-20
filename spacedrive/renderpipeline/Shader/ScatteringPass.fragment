@@ -24,8 +24,15 @@ void main() {
     vec3 baseColor = texture(basecolorTex, texcoord).xyz;
     vec3 wsPosModified = wsPosition;
 
+    #if defined(DEBUG_DISABLE_SCATTERING)
+        result = vec4(baseColor.xyz, 1);
+        return;
+    #endif
+
     #if defined(USE_SKYBOX_SCATTERING)
-        cameraPositionZ.z = wsPosModified.z;
+        // cameraPositionZ.z = wsPosModified.z;
+
+        // wsPosition.z -= length(wsPosition.xy);
     #endif
 
     vec3 viewDir = normalize(wsPosModified - cameraPosition);
@@ -36,11 +43,19 @@ void main() {
     // waste a gbuffer flag for marking the skybox.r
     bool isSkybox = distance(wsPosModified, cameraPosition) > SKYBOX_BEGIN;
     
+    #if defined(USE_SKYBOX_SCATTERING)
+        // wsPosModified *= 1e5;
 
-    wsPosModified *= 1e20;
+        // wsPosModified = vec3(0, 0, 1000000000000000000.0);
+        // wsPosModified.z = cos(length(wsPosModified.xy) / 600000000.0) * -6000000000.0;
+        // wsPosModified.z = 600000000.0;
+
+
+    #else
     if (isSkybox) {
-        // wsPosition *= 1e10;
+        // wsPosModified *= 1e20;
     }
+    #endif
 
     vec3 scatteringResult = scatteringComputeInscatteredLight(
         scatteringOptions,
@@ -61,13 +76,17 @@ void main() {
 
 
     if (!isSkybox) {
-        float fogFactor = max(0.0, distance(cameraPosition, wsPosition) - 50.0) / 1500.0;
+        float fogFactor = saturate( (distance(cameraPosition, wsPosition) - 15.0) / 2000.0);
         // scatteringResult *= 0.2;
-        scatteringResult *= 0.3 * fogFactor;
+        fogFactor = smoothstep(0.0, 1.0, fogFactor);
+        // fogFactor = 0.0;
+        // fogFactor = 1.r0;
+        // fogFactor = saturate(fogFactor);
+        scatteringResult *= 2.0 * fogFactor;
         // scatteringResult *= 0.0;
         // scatteringResult = vec3(fogFactor);
     } else {
-        scatteringResult *= 0.35;
+        scatteringResult *= 0.55;
         scatteringResult = pow(scatteringResult, vec3(1.1));
     }
 

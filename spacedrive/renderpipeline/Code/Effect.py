@@ -35,6 +35,7 @@ class Effect(DebugObject):
 
         self._handleProperties()
         self.name = filename.replace("\\", "/").split("/")[-1].split(".")[0]
+        self._rename("Effect-" + self.name)
 
         with open(filename, "r") as handle:
             content = handle.readlines()
@@ -193,10 +194,17 @@ class Effect(DebugObject):
             elif param == "out":
                 for line in lines:
                     inserts["SHADER_IN_OUT"].append("out " + line.rstrip(";") + ";");
-
             elif param == "uniform":
                 for line in lines:
                     inserts["SHADER_IN_OUT"].append("uniform " + line.rstrip(";") + ";"); 
+            elif param == "include":
+                for line in lines:
+                    includePath = line.strip('"')
+                    inserts["SHADER_IN_OUT"].append("#pragma include \"" +includePath + "\""); 
+            elif param == "template":
+                pass
+            else:
+                self.warn("Unkown parameter", param)
 
 
         if "SHADER_IN_OUT" not in inserts:
@@ -246,10 +254,22 @@ class Effect(DebugObject):
             line = line.rstrip()
             if len(line.strip()) < 1:
                 continue
-            if line.strip().startswith("//") or line.strip().startswith("#"):
+            if line.strip().startswith("//"):
                 continue
             strippedLines.append(line)
         
+        # Check for defines
+        for line in strippedLines:
+            if line.startswith("define"):
+                parts = line.split()
+                if len(parts) < 3:
+                    self.warn("Invalid define:", line)
+                    continue
+                defineName = parts[1]
+                defineVal = " ".join(parts[2:])
+
+                self.defines[defineName] = defineVal
+
         # Extract blocks
         stageBlocks = self._handleBlocks(strippedLines)
 
@@ -281,7 +301,7 @@ class Effect(DebugObject):
                         paramName = line.split()[0]
 
                         # Check if the param is supported
-                        if paramName not in ["in", "out", "template", "insert", "uniform"]:
+                        if paramName not in ["in", "out", "template", "insert", "uniform", "include"]:
                             self.error("Unkown keyword", paramName)
                             continue
 

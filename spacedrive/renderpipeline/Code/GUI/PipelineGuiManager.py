@@ -79,6 +79,7 @@ class PipelineGuiManager(DebugObject):
         register_mode("Roughness", "rm_Roughness")
         register_mode("Specular", "rm_Specular")
         register_mode("Normal", "rm_Normal")
+        register_mode("Velocity", "rm_Velocity")
 
         if s.occlusionTechnique != "None":
             register_mode("Occlusion", "rm_Occlusion")
@@ -103,7 +104,7 @@ class PipelineGuiManager(DebugObject):
         register_mode("Ambient", "rm_Ambient")
         register_feature("Ambient", "ft_AMBIENT")
 
-        if s.motionBlurEnabled:
+        if s.enableMotionBlur:
             register_feature("Motion Blur", "ft_MOTIONBLUR")
 
         if s.antialiasingTechnique != "None":

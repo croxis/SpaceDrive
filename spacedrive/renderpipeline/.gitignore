@@ -10,7 +10,7 @@ Core/Linux/
 Cython/
 *.psd
 Temp/
-Models/**.blend
+Models/**/*.blend
 Models/PBSTest/Scene.egg
 *.blend1
 *.blend2
@@ -26,4 +26,6 @@ instance.pid
 TODO.txt
 Models/VertexPerformanceTest/Scene.egg
 Models/LittleHouse/
-
+BugReports/
+Toolkit/EnvironmapPrefilter/result/
+Toolkit/EnvironmapPrefilter/source/

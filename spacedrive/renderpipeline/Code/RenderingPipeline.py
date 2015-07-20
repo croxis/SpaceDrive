@@ -8,6 +8,7 @@ from panda3d.core import ColorWriteAttrib
 
 from DebugObject import DebugObject
 from SystemAnalyzer import SystemAnalyzer
+from BugReporter import BugReporter
 from Scattering import Scattering
 from Globals import Globals
 from GlobalIllumination import GlobalIllumination
@@ -22,6 +23,9 @@ from AntialiasingManager import AntialiasingManager
 from TransparencyManager import TransparencyManager
 from DynamicObjectsManager import DynamicObjectsManager
 from GUI.PipelineGuiManager import PipelineGuiManager
+from SSLRManager import SSLRManager
+
+from GUI.BetterOnscreenImage import BetterOnscreenImage
 
 from RenderPasses.InitialRenderPass import InitialRenderPass
 from RenderPasses.DeferredScenePass import DeferredScenePass
@@ -30,7 +34,9 @@ from RenderPasses.LightingPass import LightingPass
 from RenderPasses.DynamicExposurePass import DynamicExposurePass
 from RenderPasses.FinalPostprocessPass import FinalPostprocessPass
 from RenderPasses.VolumetricLightingPass import VolumetricLightingPass
-from RenderPasses.SSLRPass import SSLRPass
+from RenderPasses.MotionBlurPass import MotionBlurPass
+
+from direct.gui.DirectFrame import DirectFrame
 
 class RenderingPipeline(DebugObject):
 
@@ -120,7 +126,9 @@ class RenderingPipeline(DebugObject):
         effect = self.effectLoader.loadEffect(effect, properties)
 
         if effect.getSetting("transparent"):
-            pass
+            if not self.settings.useTransparency:
+                self.error("Cannot assign transparent material when transparency is disabled")
+                return False
 
         if effect.getSetting("dynamic"):
             self.registerDynamicObject(obj)
@@ -193,7 +201,7 @@ class RenderingPipeline(DebugObject):
         scale and the camera far plane, to avoid z-fighting issues. The default
         skybox also comes with a default skybox shader aswell as a default skybox
         texture. The shaders and textures can be overridden by the user if required. """
-        skybox = loader.loadModel("Models/Skybox/Model.egg.bam")
+        skybox = loader.loadModel("Data/InternalModels/Skybox.bam")
         skybox.setScale(scale)
 
         skytex = loader.loadTexture("Data/Skybox/sky.jpg")
@@ -202,7 +210,7 @@ class RenderingPipeline(DebugObject):
         skytex.setMinfilter(SamplerState.FTLinear)
         skytex.setMagfilter(SamplerState.FTLinear)
         skybox.setShaderInput("skytex", skytex)
-        self.setEffect(skybox, "Effects/Default/Skybox.effect", {
+        self.setEffect(skybox, "Effects/Skybox/Skybox.effect", {
             "castShadows": False, 
             "normalMapping": False, 
             "castGI": False}, 100)
@@ -231,8 +239,18 @@ class RenderingPipeline(DebugObject):
         """ Spanws the pipeline update tasks, this are mainly the pre-render
         and post-render tasks, whereas the pre-render task has a lower priority
         than the draw task, and the post-render task has a higher priority. """
-        self.showbase.addTask(self._preRenderUpdate, "RP_BeforeRender", sort=-5000)
-        self.showbase.addTask(self._postRenderUpdate, "RP_AfterRender", sort=5000)
+        self.showbase.addTask(self._preRenderUpdate, "RP_BeforeRender", sort=10)
+        self.showbase.addTask(self._postRenderUpdate, "RP_AfterRender", sort=100)
+
+        # for task in self.showbase.taskMgr.getAllTasks():
+            # print task, task.getSort()
+
+    def _createLastFrameBuffers(self):
+        """ Creates the buffers which store the last frame depth, as the render
+        target matcher cannot handle this """
+
+        # self.lastFrameDepth = Texture()
+        # self.lastFrameDepth.setup2dTexture()
 
     def _createInputHandles(self):
         """ Defines various inputs to be used in the shader passes. Most inputs
@@ -240,6 +258,7 @@ class RenderingPipeline(DebugObject):
         time. """
         self.cameraPosition = PTAVecBase3f.emptyArray(1)
         self.currentViewMat = PTALMatrix4f.emptyArray(1)
+        self.currentProjMatInv = PTALMatrix4f.emptyArray(1)
         self.lastMVP = PTALMatrix4f.emptyArray(1)
         self.currentMVP = PTALMatrix4f.emptyArray(1)
         self.frameIndex = PTAInt.emptyArray(1)
@@ -253,10 +272,9 @@ class RenderingPipeline(DebugObject):
         self.renderPassManager.registerStaticVariable("mainRender", self.showbase.render)
         self.renderPassManager.registerStaticVariable("frameDelta", self.frameDelta)
         self.renderPassManager.registerStaticVariable("currentViewMat", self.currentViewMat)
+        self.renderPassManager.registerStaticVariable("currentProjMatInv", self.currentProjMatInv)
 
-        # self.transformMat = TransformState.makeMat(Mat4.convertMat(Globals.base.win.getGsg().getInternalCoordinateSystem(), CSZupRight))
         self.transformMat = TransformState.makeMat(Mat4.convertMat(CSYupRight, CSZupRight))
-
 
     def _preRenderUpdate(self, task):
         """ This is the pre render task which handles updating of all the managers
@@ -271,6 +289,7 @@ class RenderingPipeline(DebugObject):
             self.transparencyManager.update()
         self.antialiasingManager.update()
         self.renderPassManager.preRenderUpdate()
+        self.sslrManager.update()
         if self.globalIllum:
             self.globalIllum.update()
         if self.scattering:
@@ -287,9 +306,10 @@ class RenderingPipeline(DebugObject):
         cameraBounds.xform(self.showbase.camera.getMat(self.showbase.render))
         self.lightManager.setCullBounds(cameraBounds)
 
-        self.lastMVP[0] = self.currentMVP[0]
+        self.lastMVP[0] = UnalignedLMatrix4f(self.currentMVP[0])
         self.currentMVP[0] = self._computeMVP()
         self.currentViewMat[0] = UnalignedLMatrix4f(self.transformMat.invertCompose(self.showbase.render.getTransform(self.showbase.cam)).getMat())
+        self.currentProjMatInv[0] = UnalignedLMatrix4f(self.showbase.camLens.getProjectionMatInv())
         self.frameDelta[0] = Globals.clock.getDt()
         self.cameraPosition[0] = self.showbase.cam.getPos(self.showbase.render)
         self.frameIndex[0] = self.frameIndex[0] + 1
@@ -380,12 +400,16 @@ class RenderingPipeline(DebugObject):
         if self.settings.enableScattering:
             define("USE_SCATTERING", 1)
 
-
         define("GLOBAL_AMBIENT_FACTOR", self.settings.globalAmbientFactor)
 
         # Pass camera near and far plane
         define("CAMERA_NEAR", Globals.base.camLens.getNear())
         define("CAMERA_FAR", Globals.base.camLens.getFar())
+
+        # Motion blur settings
+        define("MOTION_BLUR_SAMPLES", self.settings.motionBlurSamples)
+        define("MOTION_BLUR_FACTOR", self.settings.motionBlurFactor)
+        define("MOTION_BLUR_DILATE_PIXELS", self.settings.motionBlurDilatePixels)
 
     def _createGlobalIllum(self):
         """ Creates the global illumination manager if enabled in the settings """
@@ -400,7 +424,7 @@ class RenderingPipeline(DebugObject):
         specified in the settings """
         if self.settings.enableScattering:
             earthScattering = Scattering(self)
-            scale = 100000
+            scale = 100
             earthScattering.setSettings({
                 "atmosphereOffset": Vec3(0, 0, - (6360.0 + 16.5) * scale),
                 "atmosphereScale": Vec3(scale)
@@ -437,13 +461,31 @@ class RenderingPipeline(DebugObject):
             for i in range(numGeoms):
                 geomNode.modifyGeom(i).makePatchesInPlace()
 
+    def createBugReport(self):
+        """ Creates a bug report """
+
+        w, h = self.showbase.win.getXSize(), self.showbase.win.getYSize()
+
+        overlayBg = DirectFrame(parent=self.showbase.pixel2dp,
+                                   frameColor=(0.05, 0.05, 0.05, 0.8),
+                                   frameSize=(0, w, -h, 0))  # state=DGG.NORMAL
+        overlay = BetterOnscreenImage(image="Data/GUI/BugReport.png", parent=self.showbase.pixel2dp, w=757, h=398, x=(w-757)/2, y=(h-398)/2)
+
+        for i in xrange(2):
+            self.showbase.graphicsEngine.renderFrame()
+        reporter = BugReporter(self)
+        overlay.remove()
+        overlayBg.remove()
+
+
     def create(self):
         """ Creates the pipeline """
 
         self.debug("Setting up render pipeline")
 
-        # Handy shortcut
+        # Handy shortcuts
         self.showbase.accept("r", self.reloadShaders)
+        self.showbase.accept("f7", self.createBugReport)
 
         if self.settings is None:
             self.error("You have to call loadSettings first!")
@@ -482,7 +524,7 @@ class RenderingPipeline(DebugObject):
             self.guiManager = None
 
         # Some basic scene settings
-        self.showbase.camLens.setNearFar(0.1, 500000)
+        self.showbase.camLens.setNearFar(0.1, 50000)
         self.showbase.camLens.setFov(110)
         self.showbase.win.setClearColor(Vec4(1.0, 0.0, 1.0, 1.0))
         self.showbase.camNode.setCameraMask(self.getMainPassBitmask())
@@ -491,6 +533,8 @@ class RenderingPipeline(DebugObject):
         # Create render pass matcher
         self.renderPassManager = RenderPassManager()
 
+        # Create last frame buffers
+        self._createLastFrameBuffers()
 
         self._precomputeScattering()
 
@@ -511,10 +555,10 @@ class RenderingPipeline(DebugObject):
             self.dynamicExposurePass = DynamicExposurePass(self)
             self.renderPassManager.registerPass(self.dynamicExposurePass)
 
-        # Add SSLR pass
-        if self.settings.enableSSLR:
-            self.sslrPass = SSLRPass()
-            self.renderPassManager.registerPass(self.sslrPass)
+        # Add motion blur pass
+        if self.settings.enableMotionBlur:
+            self.motionBlurPass = MotionBlurPass()
+            self.renderPassManager.registerPass(self.motionBlurPass)
 
         # Add volumetric lighting
         # self.volumetricLightingPass = VolumetricLightingPass()
@@ -529,6 +573,7 @@ class RenderingPipeline(DebugObject):
         self.lightManager = LightManager(self)
         self.antialiasingManager = AntialiasingManager(self)
         self.dynamicObjectsManager = DynamicObjectsManager(self)
+        self.sslrManager = SSLRManager(self)
         
         if self.settings.useTransparency:
             self.transparencyManager = TransparencyManager(self)

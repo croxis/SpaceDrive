@@ -73,13 +73,15 @@ win-fixed-size #t
 # win-size 1600 960
 win-size 1920 1080
 # fullscreen #t
+# win-size 2560 1440
 # win-size 1280 720
+
 
 # Show custom cursor
 # cursor-filename lalala
 
 # The title of the window
-window-title Render Pipeline by tobspr
+window-title Render Pipeline by tobspr 
 icon-filename Data/icon.ico
 
 # Framebuffers use SRGB
@@ -171,3 +173,6 @@ gl-coordinate-system default
 
 # notify-level-gsg spam
 # notify-level-glgsg error
+
+
+interpolate-frames 1

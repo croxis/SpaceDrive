@@ -37,6 +37,9 @@ from Code.GlobalIllumination import GlobalIllumination
 from Code.SpotLight import SpotLight
 from Code.GUI.PipelineLoadingScreen import PipelineLoadingScreen
 
+from Code.Water.ProjectedWaterGrid import ProjectedWaterGrid
+
+from direct.interval.IntervalGlobal import Sequence
 
 
 class Main(ShowBase, DebugObject):
@@ -59,7 +62,7 @@ class Main(ShowBase, DebugObject):
         # Show loading screen
         self.loadingScreen = PipelineLoadingScreen(self)
         self.loadingScreen.render()
-        self.loadingScreen.setStatus("Creating pipeline")
+        self.loadingScreen.setStatus("Creating pipeline", 10)
 
         # Create the render pipeline
         self.debug("Creating pipeline")
@@ -75,7 +78,7 @@ class Main(ShowBase, DebugObject):
         # Load pipeline settings
         self.renderPipeline.loadSettings("Config/pipeline.ini")
 
-        self.loadingScreen.setStatus("Compiling shaders")
+        self.loadingScreen.setStatus("Compiling shaders", 20)
 
         # Create the pipeline, and enable scattering
         self.renderPipeline.create()
@@ -101,7 +104,9 @@ class Main(ShowBase, DebugObject):
         # self.sceneSource = "Demoscene.ignore/SanMiguel/Scene.bam"
         # self.sceneSource = "Demoscene.ignore/DabrovicSponza/Scene.egg"
         # self.sceneSource = "Demoscene.ignore/Avolition/level5.bam"
-        self.sceneSource = "Demoscene.ignore/Alphatest/alphatest.egg"
+        # self.sceneSource = "Demoscene.ignore/Sphere/Scene.bam"
+        # self.sceneSource = "Demoscene.ignore/Alphatest/alphatest.egg"
+        self.sceneSource = "Demoscene.ignore/TestScene/Test.bam"
         # self.sceneSource = "Models/LittleHouse/Scene.bam"
 
 
@@ -114,7 +119,6 @@ class Main(ShowBase, DebugObject):
         # self.sceneSource = "Models/GITestScene/Scene.egg"
         # self.sceneSource = "Models/VertexPerformanceTest/Scene.egg"
         # self.sceneSource = "Models/Buddha/Buddha.bam"
-        # self.sceneSource = "Toolkit/Blender Material Library/Buddha.bam"
         # self.sceneSource = "Toolkit/Blender Material Library/MaterialLibrary.egg"
         
 
@@ -133,10 +137,10 @@ class Main(ShowBase, DebugObject):
         if True:
             dirLight = DirectionalLight()
             dirLight.setPos(dPos * 100000.0)
-            dirLight.setShadowMapResolution(2048)
+            dirLight.setShadowMapResolution(1024)
             dirLight.setColor(1.5, 1.2, 0.8)
             dirLight.setCastsShadows(True)
-            dirLight.setPssmDistance(50)
+            dirLight.setPssmDistance(190)
             self.renderPipeline.addLight(dirLight)
             self.dirLight = dirLight
 
@@ -208,7 +212,7 @@ class Main(ShowBase, DebugObject):
         self.addTask(self.update, "update")
 
         # Update loading screen status
-        self.loadingScreen.setStatus("Loading scene")
+        self.loadingScreen.setStatus("Loading scene", 55)
        
 
         # Show loading screen a bit
@@ -274,7 +278,7 @@ class Main(ShowBase, DebugObject):
 
         self.debug("Successfully loaded scene")
 
-        self.loadingScreen.setStatus("Loading skybox")
+        self.loadingScreen.setStatus("Loading skybox", 70)
 
         self.scene = scene
         self.scene.prepareScene(self.win.getGsg())
@@ -296,7 +300,7 @@ class Main(ShowBase, DebugObject):
 
             if highPolyObj is not None and not highPolyObj.isEmpty():
                 # highPolyObj.detachNode()
-                self.loadingScreen.setStatus("Preparing Performance Test")
+                self.loadingScreen.setStatus("Preparing Performance Test", 75)
 
                 for x in xrange(0, 20):
                     # for y in xrange(0, 1):
@@ -317,7 +321,6 @@ class Main(ShowBase, DebugObject):
             if matches:
                 for match in matches:
                     self.transparentObjects.append(match)
-                    # self.renderPipeline.prepareTransparentObject(match)
                     self.renderPipeline.setEffect(match, "Effects/Default/Default.effect", {
                         "transparent": True
                         })
@@ -329,11 +332,11 @@ class Main(ShowBase, DebugObject):
                 match.remove()
 
         # Wheter to use a ground plane
-        self.usePlane = True
+        self.usePlane = False
         self.sceneWireframe = False
 
         # Flatten scene?
-        self.loadingScreen.setStatus("Optimizing Scene")
+        self.loadingScreen.setStatus("Optimizing Scene", 90)
 
         # self.scene.clearModelNodes()
         # loader.asyncFlattenStrong(self.scene, inPlace=False, callback=self.onScenePrepared)
@@ -348,7 +351,7 @@ class Main(ShowBase, DebugObject):
         self.prepareSRGB(self.scene)
 
         # Prepare Materials
-        self.renderPipeline.fillTextureStages(render)
+        # self.renderPipeline.fillTextureStages(render)
 
         # Load ground plane if configured
         if self.usePlane:
@@ -358,11 +361,26 @@ class Main(ShowBase, DebugObject):
             self.groundPlane.setScale(12.0)
             self.groundPlane.setTwoSided(True)
             self.groundPlane.flattenStrong()
-            self.groundPlane.reparentTo(self.scene)
+            self.groundPlane.reparentTo(render)
 
+
+        # lerpTop = self.scene.posInterval(0.4, Vec3(0, 0, 7), startPos=Vec3(0,0,2))
+        # lerpBot = self.scene.posInterval(0.4, Vec3(0, 0, 2), startPos=Vec3(0,0,7))
+        # sequence = Sequence(lerpTop, lerpBot)
+        # sequence.loop()
+
+        # self.renderPipeline.setEffect(self.scene, "Effects/Default/Default.effect", {
+        #     "dynamic": True,
+        #     })
 
         # Some artists really don't know about backface culling
         self.scene.setTwoSided(True)
+
+        # Create some ocean
+        self.water = ProjectedWaterGrid(self.renderPipeline)
+
+
+
 
         # Required for tesselation
         # self.convertToPatches(self.scene)
@@ -418,7 +436,7 @@ class Main(ShowBase, DebugObject):
         if radial:
             rawValue = rawValue / 100.0 * 2.0 * math.pi
             dPos = Vec3(
-                math.sin(rawValue) * 30.0, math.cos(rawValue) * 30.0, 12.0)
+                math.sin(rawValue) * 30.0, math.cos(rawValue) * 30.0, 23.0)
             # dPos = Vec3(100, 100, (rawValue - 50) * 10.0)
         else:
             dPos = Vec3(30, (rawValue - 50) * 1.5, 0)
