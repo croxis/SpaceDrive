@@ -45,7 +45,7 @@ void main() {
         result = applyChromaticAbberation(colorTex, texcoord, 0.0);
         
         // Color LUT
-        //result = applyColorLUT(colorLUT, result);
+        result = applyColorLUT(colorLUT, result);
 
         // Film grain
         result = computeGrain(result, texcoord, mod(osg_FrameTime, 1.0) + 1.0);
