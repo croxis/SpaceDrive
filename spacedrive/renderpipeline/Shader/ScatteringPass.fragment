@@ -72,7 +72,7 @@ void main() {
     #if 1
 
     //scatteringResult *= 4.5;
-    scatteringResult *= 0.005;
+    scatteringResult *= 0.02;
 
 
     if (!isSkybox) {
