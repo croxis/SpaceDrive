@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='SpaceDrive',
-      version='1.2',
+      version='1.3',
       description='Panda3D Space Game Engine. Requires sandbox',
       author='croxis',
       author_email='croxis@gmail.com',

@@ -13,8 +13,8 @@ def prepare_srgb(node_path):
         elif baseFormat == Texture.FRgba:
             tex.setFormat(Texture.FSrgbAlpha)
         else:
-            print "Unkown texture format:", baseFormat
-            print "\tTexture:", tex
+            print("Unkown texture format:", baseFormat)
+            print("\tTexture:", tex)
 
         tex.setMinfilter(Texture.FTLinearMipmapLinear)
         tex.setMagfilter(Texture.FTLinear)

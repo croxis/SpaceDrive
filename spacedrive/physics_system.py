@@ -101,7 +101,7 @@ class PhysicsSystem(sandbox.EntitySystem):
 
     def setThrottle(self, shipid, data):
         if abs(data.normal) > 100 or abs(data.heading) > 100:
-            print "Invalid"
+            print("Invalid")
             return
         ship = sandbox.entities[shipid]
         shipPhysics = ship.get_component(shipComponents.BulletPhysicsComponent)
