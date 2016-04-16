@@ -1,0 +1,20 @@
+#pragma once
+
+#pragma include "Includes/Configuration.include"
+
+uniform sampler2DArray IESProfilesTex;
+
+vec3 computeIESProfile(int iesProfileID, float radialFactor, float distance) {
+
+    // #if defined(DEBUG_DISABLE_COMPLEX_LIGHTING)
+    //     return vec3(radialFactor);
+    // #endif
+    
+    radialFactor *= 0.7;
+    vec3 iesRadialFallof = textureLod(IESProfilesTex, 
+        vec3(radialFactor, 0.0, iesProfileID), 0).rgb;
+
+    float iesGradient = textureLod(IESProfilesTex, vec3(1.0 - saturate(distance), 0.0, iesProfileID), 0).w;
+
+    return iesGradient * iesRadialFallof * 16.0;
+}

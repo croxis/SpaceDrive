@@ -1,0 +1,44 @@
+#pragma once
+
+#pragma include "Includes/Configuration.include"
+#pragma include "Includes/Structures/Material.struct"
+
+Material unpackMaterial(vec4 data0, vec4 data1, vec4 data2, vec4 data3) {
+    Material m;
+
+    m.position = data0.xyz;
+    m.roughness = max(0.001, data0.w);
+    m.normal = data1.xyz;
+    m.baseColor = data3.xyz;
+    m.metallic = data2.w;
+    m.specular = data2.z;
+    m.translucency = data1.w;
+
+    // Material debug render modes
+    #if defined(DEBUG_RM_LIGHTING)
+        m.baseColor = vec3(1);
+    #endif
+
+    #if defined(DEBUG_RM_DIFFUSE_LIGHTING)
+        m.baseColor = vec3(1);
+        m.metallic = 0.0;
+        m.specular = 0.0;
+        m.roughness = 1.0;
+        m.translucency = 0.0;
+    #endif
+    
+    return m;
+}
+
+
+Material getDefaultMaterial() {
+    Material m;
+    m.baseColor = vec3(1);
+    m.roughness = 0.5;
+    m.metallic = 0.5;
+    m.specular = 0.5;
+    m.translucency = 0.0;
+    m.position = vec3(0);
+    m.normal = vec3(1);
+    return m;
+}

@@ -1,0 +1,88 @@
+#pragma once
+
+#pragma include "Includes/Configuration.include"
+#pragma include "Includes/Structures/Material.struct"
+#pragma include "Includes/PoissonDisk.include"
+#pragma include "Includes/Structures/GIData.struct"
+
+
+uniform GIData giData;
+uniform sampler3D photonGatherGridTex;
+
+
+vec4 traceCone(GIData data, sampler3D targetTex, vec3 start, vec3 direction,
+    int iterations, float stepRatio, float coneRatio, float startDistance, float initialConeRadius) {
+
+    vec3 directionStep = normalize(direction) / (2.0 * data.gridHalfSize);
+
+    vec4 result = vec4(0);
+
+    float currentDistance = startDistance;
+    float currentConeRadius = initialConeRadius;
+
+    // TODO: Optimize
+    for (int i = 0; i < iterations; i++) {
+        currentConeRadius *= stepRatio; 
+        currentDistance += currentConeRadius * coneRatio;
+        vec3 currentPos = start + directionStep * currentDistance;
+        float currentMip = log2( currentConeRadius + 1.0 ) * 0.5;
+        currentMip = min(currentMip, 5.0);
+        currentMip = 0.0;
+        vec4 currentVal = textureLod(photonGatherGridTex, currentPos, currentMip );
+        vec4 currentValGeometry = textureLod(data.geometry, currentPos, currentMip );
+        result += vec4(currentVal.xyz, currentValGeometry.w) * (1.0-result.w);
+    }
+    return result;
+}
+
+vec4 computeGlobalIllumination(Material m, vec3 viewVector, GIData data, out vec4 specularColor, vec3 flatNormal, vec3 cameraPosition) {
+
+    // The color which is returned when a pixel is not in the gi range.
+    // Also used to fade out gi at the grid borders.
+    float boundsColor = 1.0;
+
+    // Fetch the normal used to compute the cone directions
+    // vec3 correctNormal = normalize(cross(dFdx(m.position), dFdy(m.position)));
+    vec3 correctNormal = m.normal;
+
+    // Compute grid variables
+    vec3 gridStart = data.gridPos - data.gridHalfSize;
+    vec3 gridEnd = data.gridPos + data.gridHalfSize;
+    vec3 voxelSize = (gridEnd - gridStart) / vec3(data.gridResolution);
+
+
+    // Check if the pixel is in the grid
+    bool isInGrid = all(greaterThan(m.position, gridStart)) && 
+                    all(lessThan(m.position, gridEnd));
+
+    specularColor = vec4(0);
+
+    // If not in gi range, ignore this pixel
+    // TODO: Check if early out is actually faster
+    if (!isInGrid) return vec4(1,0,0,0);
+
+
+    // Bias position a bit, so self shadowing gets less strong
+    vec3 biasedPosition = m.position + m.normal * voxelSize * 0.0;
+
+    // Compute coordinate in voxel space
+    vec3 localCoord = (biasedPosition-gridStart) / (2 * data.gridHalfSize);
+    vec3 localCoordOffs = mod(localCoord, 1.0 / data.gridResolution);
+
+
+    ivec3 localCoordInGrid = ivec3(localCoord * data.gridResolution);
+
+    // vec3 averagedColor = texelFetch(photonGatherGridTex, localCoordInGrid, 0);
+
+
+
+    specularColor = vec4(0.2, 0.6, 1.0, 1);
+
+    vec3 averagedColor = textureLod(photonGatherGridTex, localCoord, 0).xyz * 0.1;
+
+    // averagedColor = pow(averagedColor, vec3(1.5));
+
+
+    return vec4(averagedColor, 1);
+
+}

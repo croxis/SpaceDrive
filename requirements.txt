@@ -1,0 +1,2 @@
+pyyaml
+-e git+https://github.com/croxis/sandbox.git#egg=sandbox
