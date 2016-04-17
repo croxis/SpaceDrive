@@ -39,3 +39,6 @@ class GUISystem(sandbox.EntitySystem):
 
     def init(self):
         pass
+
+    def setup_screen(self, *args, **kwargs):
+        pass

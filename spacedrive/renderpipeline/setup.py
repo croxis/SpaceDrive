@@ -106,7 +106,7 @@ def exec_python_file(pth, args=None):
         print("Executing", ' '.join(cmd))
         print("CWD is", basedir)
     try:
-        output = subprocess.run(cmd)
+        output = subprocess.check_output(cmd)
     except subprocess.CalledProcessError as msg:
         print(color("Failed to execute '" + pth + "'", Fore.YELLOW + Style.BRIGHT))
         print("Output:", msg, "\n", msg.output.decode("utf-8", errors="ignore"))
