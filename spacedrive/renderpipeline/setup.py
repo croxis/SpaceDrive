@@ -104,17 +104,18 @@ def exec_python_file(pth, args=None):
     cmd = [sys.executable, "-B", pth] + (args or [])
     if CMD_ARGS.verbose:
         print("Executing", ' '.join(cmd))
+        print("CWD is", basedir)
     try:
         output = subprocess.run(cmd)
     except subprocess.CalledProcessError as msg:
         print(color("Failed to execute '" + pth + "'", Fore.YELLOW + Style.BRIGHT))
-        print("Output:", msg, "\n", msg.output)
+        print("Output:", msg, "\n", msg.output.decode("utf-8", errors="ignore"))
         error("Python script didn't return properly!")
     except IOError as msg:
         print("Python script error:", msg)
         error("Error during script execution")
     if CMD_ARGS.verbose:
-        print(output.decode("utf-8"))
+        print(output.decode("utf-8", errors="ignore"))
     os.chdir(SETUP_DIR)
 
 def extract_gz_files(pth):

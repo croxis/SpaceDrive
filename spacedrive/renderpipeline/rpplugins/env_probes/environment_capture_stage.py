@@ -28,7 +28,7 @@ from __future__ import division
 from rplibs.six.moves import range
 from rplibs.six import itervalues
 
-from panda3d.core import Camera, PerspectiveLens, Vec4, Vec3, PTAInt, GraphicsOutput
+from panda3d.core import Camera, PerspectiveLens, Vec4, Vec3, PTAInt
 
 from rpcore.globals import Globals
 from rpcore.image import Image
@@ -106,7 +106,7 @@ class EnvironmentCaptureStage(RenderStage):
 
         # Register cameras
         for camera_np in self.cameras:
-            self._pipeline.tag_mgr.register_envmap_camera(camera_np.node())
+            self._pipeline.tag_mgr.register_camera("envmap", camera_np.node())
 
     def _create_store_targets(self):
         """ Creates the targets which copy the result texture into the actual storage """

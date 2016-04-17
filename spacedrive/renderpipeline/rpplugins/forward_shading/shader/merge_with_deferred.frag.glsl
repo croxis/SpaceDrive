@@ -28,41 +28,21 @@
 
 #pragma include "render_pipeline_base.inc.glsl"
 
-uniform sampler2D SourceTex;
+uniform sampler2D ShadedScene;
+uniform sampler2D SceneDepth;
+uniform sampler2D ForwardDepth;
+uniform sampler2D ForwardColor;
 
-// Filters the SSR result and removes single pixels
-
-out vec4 result;
+out vec3 result;
 
 void main() {
-  vec2 texcoord = get_half_texcoord();
-  vec2 pixsize = 2.0 / SCREEN_SIZE;
+    vec2 texcoord = get_texcoord();
 
-  vec4 mid_data = texture(SourceTex, texcoord);
+    vec3 deferred_result = textureLod(ShadedScene, texcoord, 0).xyz;
+    vec4 forward_result = textureLod(ForwardColor, texcoord, 0);
 
-  // result = mid_data;
-  // return;
-
-  // Skip lost pixels
-  if (mid_data.w < 1e-3) {
-    result = vec4(0);
-    return;
-  }
-
-  const int kernel_size = 1;
-
-  int num_adjacent_pixels = 0;
-  for (int x = -kernel_size; x <= kernel_size; ++x) {
-    for (int y = -kernel_size; y <= kernel_size; ++y) {
-      if (x == 0 && y == 0) continue;
-      if (distance(texture(SourceTex, texcoord + vec2(x, y) * pixsize).xyz, mid_data.xyz) < 0.05) {
-        num_adjacent_pixels ++;
-      }
-    }
-  }
-
-  if (num_adjacent_pixels < 2) {
-    mid_data *= 0;
-  }
-  result = mid_data;
+    float deferred_depth = textureLod(ForwardDepth, texcoord, 0).x;
+    float forward_depth = textureLod(SceneDepth, texcoord, 0).x;
+    forward_result.xyz = forward_result.xyz * forward_result.w + deferred_result * (1 - forward_result.w);
+    result = deferred_depth > forward_depth ? deferred_result : forward_result.xyz;
 }

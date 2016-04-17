@@ -68,11 +68,6 @@ uniform samplerCube DefaultEnvmap;
 
 out vec4 result;
 
-float get_mipmap_for_roughness(samplerCube map, float roughness, float NxV) {
-
-    return sqrt(roughness) * 7.0;
-}
-
 float compute_specular_occlusion(float NxV, float occlusion, float roughness) {
     // return occlusion;
     return saturate(pow(NxV + occlusion, roughness) - 1 + occlusion);
@@ -164,10 +159,6 @@ void main() {
             vec4 probe_spec = textureLod(EnvmapAmbientSpec, texcoord, 0);
             vec4 probe_diff = textureLod(EnvmapAmbientDiff, texcoord, 0);
 
-            // Unpack color
-            probe_diff.xyz = probe_diff.xyz / max(vec3(1e-7), 1 - probe_diff.xyz);
-            probe_spec.xyz = probe_spec.xyz / max(vec3(1e-7), 1 - probe_spec.xyz);
-
             ibl_diffuse = ibl_diffuse * (1 - probe_diff.w) + probe_diff.xyz;
             ibl_specular = ibl_specular * (1 - probe_spec.w) + probe_spec.xyz;
         #endif
@@ -210,9 +201,7 @@ void main() {
         diffuse_ambient *= env_brdf.r;
 
         // Approximate metallic fresnel
-        vec3 metallic_energy_f0 = vec3(1.0 - 0.7 * m.roughness) * m.basecolor;
-        vec3 metallic_energy_f90 = mix(vec3(1), 0.5 * m.basecolor, m.linear_roughness);
-        vec3 metallic_fresnel = mix(metallic_energy_f0, metallic_energy_f90, pow(1 - NxV, 3.6 - 2.6 * m.linear_roughness));
+        vec3 metallic_fresnel = get_metallic_fresnel_approx(m, NxV);
 
         // Mix between normal and metallic fresnel
         fresnel = mix(fresnel, metallic_fresnel, m.metallic);
@@ -296,7 +285,7 @@ void main() {
         result = texture(EnvmapAmbientDiff, texcoord);
         return;
     #endif
-        
+
     result = scene_color * 1.0 + vec4(ambient, 1) * 1.0;
     result.w = 1.0;
 }

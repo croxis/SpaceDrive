@@ -31,7 +31,7 @@ from direct.stdpy.file import open
 
 from rpcore.rpobject import RPObject
 from rpcore.util.shader_input_blocks import GroupedInputBlock
-
+from rpcore.pluginbase.day_setting_types import ColorType
 
 class DayTimeManager(RPObject):
 
@@ -56,8 +56,14 @@ class DayTimeManager(RPObject):
         """ Sets the current time of day as floating point number from
         0 to 1, whereas 0 means 00:00 and 1 means 24:00 (=00:00). Any
         number greater than 1 will be reduced to fit the 0 .. 1 range by
-        doing time modulo 1. """
-        self._time = day_time % 1.0
+        doing time modulo 1.
+
+        Alternatively a string in the format 'hh:mm' can be passed. """
+        if isinstance(day_time, float):
+            self._time = day_time % 1.0
+        elif isinstance(day_time, str):
+            parts = [int(i) for i in day_time.split(":")]
+            self._time = (parts[0] * 60 + parts[1]) / (24 * 60)
 
     @property
     def formatted_time(self):
@@ -83,5 +89,10 @@ class DayTimeManager(RPObject):
     def update(self):
         """ Internal update method which updates all day time settings """
         for setting_id, handle in iteritems(self._setting_handles):
-            value = handle.get_scaled_value_at(self._time)
+            # XXX: Find a better interface for this. Without this fix, colors
+            # are in the range 0 .. 255 in the shader.
+            if isinstance(handle, ColorType):
+                value = handle.get_value_at(self._time)
+            else:
+                value = handle.get_scaled_value_at(self._time)
             self._input_ubo.update_input(setting_id, value)

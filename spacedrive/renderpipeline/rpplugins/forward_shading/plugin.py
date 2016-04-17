@@ -24,30 +24,28 @@ THE SOFTWARE.
 
 """
 
-from rpcore.render_stage import RenderStage
-from rpcore.stages.ambient_stage import AmbientStage
+from rpcore.pluginbase.base_plugin import BasePlugin
+
+from .forward_stage import ForwardStage
+
+class Plugin(BasePlugin):
+
+    name = "Forward Rendering"
+    author = "tobspr <tobias.springer1@gmail.com>"
+    description = ("This plugin adds support for an additional forward rendering "
+                   "pass. This is mainly useful for transparency.")
+    version = "0.1 alpha (!)"
+
+    def on_stage_setup(self):
+        self.stage = self.create_stage(ForwardStage)
+
+        if self.is_plugin_enabled("scattering"):
+            self.stage.required_pipes += ["ScatteringIBLSpecular", "ScatteringIBLDiffuse"]
+
+        if self.is_plugin_enabled("pssm"):
+            self.stage.required_pipes += ["PSSMSceneSunShadowMapPCF"]
+            self.stage.required_inputs += ["PSSMSceneSunShadowMVP"]
 
 
-class ApplyEnvprobesStage(RenderStage):
-
-    """ This stage takes the per-cell environment probes and samples them """
-
-    required_inputs = ["EnvProbes"]
-    required_pipes = ["GBuffer", "PerCellProbes", "CellIndices"]
-
-    @property
-    def produced_pipes(self):
-        return {
-            "EnvmapAmbientSpec": self.target.color_tex,
-            "EnvmapAmbientDiff": self.target.aux_tex[0]
-        }
-
-    def create(self):
-        self.target = self.create_target("ApplyEnvmap")
-        self.target.add_color_attachment(bits=16, alpha=True)
-        self.target.add_aux_attachment(bits=16)
-        self.target.prepare_buffer()
-        AmbientStage.required_pipes += ["EnvmapAmbientSpec", "EnvmapAmbientDiff"]
-
-    def reload_shaders(self):
-        self.target.shader = self.load_plugin_shader("apply_envprobes.frag.glsl")
+    def on_pipeline_created(self):
+        pass

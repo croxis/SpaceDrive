@@ -25,7 +25,7 @@ THE SOFTWARE.
 """
 from __future__ import division
 
-from panda3d.core import Vec3, Camera, OrthographicLens, Mat4, Point4, PTAMat4
+from panda3d.core import Vec3, Camera, OrthographicLens, PTAMat4
 from panda3d.core import LVecBase2i
 
 from rpcore.globals import Globals
@@ -43,6 +43,7 @@ class PSSMDistShadowStage(RenderStage):
         RenderStage.__init__(self, pipeline)
         self.resolution = 2048
         self.clip_size = 500
+        self.sun_distance = 8000
         self.sun_vector = Vec3(0, 0, 1)
         self.pta_mvp = PTAMat4.empty_array(1)
 
@@ -72,7 +73,7 @@ class PSSMDistShadowStage(RenderStage):
 
             # Reposition camera before we capture the scene
             cam_pos = Globals.base.cam.get_pos(Globals.base.render)
-            self.cam_node.set_pos(cam_pos + self.sun_vector * 4000.0)
+            self.cam_node.set_pos(cam_pos + self.sun_vector * self.sun_distance)
             self.cam_node.look_at(cam_pos)
             self.cam_lens.set_film_size(self.clip_size, self.clip_size)
 
@@ -92,7 +93,7 @@ class PSSMDistShadowStage(RenderStage):
         self.camera = Camera("PSSMDistShadowsESM")
         self.cam_lens = OrthographicLens()
         self.cam_lens.set_film_size(12000, 12000)
-        self.cam_lens.set_near_far(-1000.0, 8000.0)
+        self.cam_lens.set_near_far(10.0, self.sun_distance * 2)
         self.camera.set_lens(self.cam_lens)
         self.cam_node = Globals.base.render.attach_new_node(self.camera)
 
@@ -122,7 +123,7 @@ class PSSMDistShadowStage(RenderStage):
         self.target_blur_h.set_shader_input("direction", LVecBase2i(0, 1))
 
         # Register shadow camera
-        self._pipeline.tag_mgr.register_shadow_camera(self.camera)
+        self._pipeline.tag_mgr.register_camera("shadow", self.camera)
 
     def reload_shaders(self):
         self.target_convert.shader = self.load_plugin_shader("convert_to_esm.frag.glsl")

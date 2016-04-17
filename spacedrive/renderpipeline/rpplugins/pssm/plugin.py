@@ -62,14 +62,16 @@ class Plugin(BasePlugin):
         self.shadow_stage.num_splits = self.get_setting("split_count")
         self.shadow_stage.split_resolution = self.get_setting("resolution")
 
-        self.scene_stage = self.create_stage(PSSMSceneShadowStage)
-        self.scene_stage.resolution = self.get_setting("scene_shadow_resolution")
+        self.scene_shadow_stage = self.create_stage(PSSMSceneShadowStage)
+        self.scene_shadow_stage.resolution = self.get_setting("scene_shadow_resolution")
+        self.scene_shadow_stage.sun_distance = self.get_setting("scene_shadow_sundist")
 
         # Enable distant shadow map if specified
         if self.get_setting("use_distant_shadows"):
             self.dist_shadow_stage = self.create_stage(PSSMDistShadowStage)
             self.dist_shadow_stage.resolution = self.get_setting("dist_shadow_resolution")
             self.dist_shadow_stage.clip_size = self.get_setting("dist_shadow_clipsize")
+            self.dist_shadow_stage.sun_distance = self.get_setting("dist_shadow_sundist")
 
             self.pssm_stage.required_pipes.append("PSSMDistSunShadowMap")
             self.pssm_stage.required_inputs.append("PSSMDistSunShadowMapMVP")
@@ -101,7 +103,7 @@ class Plugin(BasePlugin):
 
             # Make sure the pipeline knows about our camera, so it can apply
             # the correct bitmasks
-            self._pipeline.tag_mgr.register_shadow_camera(camera_np.node())
+            self._pipeline.tag_mgr.register_camera("shadow", camera_np.node())
 
         # Accept a shortcut to enable / disable the update of PSSM
         Globals.base.accept("u", self.toggle_update_enabled)
@@ -117,7 +119,7 @@ class Plugin(BasePlugin):
 
         if sun_vector.z < 0.0:
             self.shadow_stage.active = False
-            self.scene_stage.active = False
+            self.scene_shadow_stage.active = False
             self.pssm_stage.set_render_shadows(False)
 
             if self.get_setting("use_distant_shadows"):
@@ -127,7 +129,7 @@ class Plugin(BasePlugin):
             return
         else:
             self.shadow_stage.active = True
-            self.scene_stage.active = True
+            self.scene_shadow_stage.active = True
             self.pssm_stage.set_render_shadows(True)
 
             if self.get_setting("use_distant_shadows"):
@@ -142,7 +144,7 @@ class Plugin(BasePlugin):
                 self.last_cache_reset = Globals.clock.get_frame_time()
                 self.camera_rig.reset_film_size_cache()
 
-            self.scene_stage.sun_vector = sun_vector
+            self.scene_shadow_stage.sun_vector = sun_vector
 
             if self.get_setting("use_distant_shadows"):
                 self.dist_shadow_stage.sun_vector = sun_vector
@@ -161,6 +163,12 @@ class Plugin(BasePlugin):
 
     def update_dist_shadow_clipsize(self):
         self.dist_shadow_stage.clip_size = self.get_setting("dist_shadow_clipsize")
+
+    def update_dist_shadow_sundist(self):
+        self.dist_shadow_stage.sun_distance = self.get_setting("dist_shadow_sundist")
+
+    def update_scene_shadow_sundist(self):
+        self.scene_shadow_stage.sun_distance = self.get_setting("scene_shadow_sundist")
 
     def toggle_update_enabled(self):
         self.update_enabled = not self.update_enabled
