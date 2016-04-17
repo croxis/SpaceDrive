@@ -15,7 +15,7 @@ class SolarSystemComponent:
 TYPES = {'moon': 0, 'solid': 1, 'star': 2, 'barycenter': 3}
 
 
-class CelestialComponent(object):
+class CelestialComponent:
     def __init__(self, name, parent_entity, true_pos=LPoint3d(0, 0, 0),
                  mass=0, soi=0, kind='', orbit=None):
         if not orbit:
@@ -32,7 +32,7 @@ class CelestialComponent(object):
         self.name = name
 
 
-class StarComponent(object):
+class StarComponent:
     def __init__(self, absolute_magnitude=1, spectral_type='', temperature=0):
         self.absolute_magnitude = absolute_magnitude
         self.spectral_type = spectral_type

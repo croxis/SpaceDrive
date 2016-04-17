@@ -1,21 +1,19 @@
-# ## Python 3 look ahead imports ###
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import os
+import os.path
 import struct
 import sys
 
 import sandbox
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                "renderpipeline"))
 
 from direct.directnotify.DirectNotify import DirectNotify
 
 from panda3d.core import loadPrcFile, loadPrcFileData
 from panda3d.core import VirtualFileSystem
 
-from .renderpipeline import RenderingPipeline
+from .renderpipeline.rpcore import RenderPipeline
 
 from . import celestial_components
 from . import physics_components
@@ -26,9 +24,6 @@ from . import orbit_system
 from . import physics_system
 
 from . import universals
-
-if sys.version > '3':
-    long = int
 
 log = DirectNotify().newCategory("SpaceDrive")
 
@@ -115,12 +110,15 @@ def init_graphics(system=GraphicsSystem,
     vfs.mount_loop(os.path.join(os.path.dirname(__file__), 'Skybox/'),
                    'Skybox', VirtualFileSystem.MF_read_only)
     # sandbox.base.camLens.set_far(20000000)
-    #sandbox.base.camLens.set_far(2000000)
-    #from .renderpipeline.Code.Globals import Globals
-    #Globals.load(sandbox.base)
-    sandbox.render_pipeline = RenderingPipeline(sandbox.base)
-    sandbox.render_pipeline.loadSettings('pipeline.ini')
-    #TODO: Make platform options
+    # sandbox.base.camLens.set_far(2000000)
+    # from .renderpipeline.Code.Globals import Globals
+    # Globals.load(sandbox.base)
+    sandbox.render_pipeline = RenderPipeline()
+    sandbox.render_pipeline.pre_showbase_init()
+    sandbox.render_pipeline.create(sandbox.base)
+    '''
+    # Below code may now be obsolete with rp2
+    # TODO: Make platform options
     cache_dir = sandbox.appdirs.user_cache_dir('spacedrive', 'croxis')
     log.debug("Cache Directory: " + cache_dir)
     if not os.path.exists(cache_dir):
@@ -133,7 +131,7 @@ def init_graphics(system=GraphicsSystem,
         os.path.join(cache_dir, 'Shaders'))
 
     sandbox.render_pipeline.create()
-    sandbox.render_pipeline.onSceneInitialized()
+    sandbox.render_pipeline.onSceneInitialized()'''
     init_system(system, component)
 
     if not debug_mouse:

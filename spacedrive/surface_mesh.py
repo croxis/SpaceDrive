@@ -27,11 +27,11 @@ def normalize(vec):
 
 # Build array for new format.
 array = GeomVertexArrayFormat()
-array.addColumn(InternalName.make(b'vertex'), 3, Geom.NTFloat32, Geom.CPoint)
-array.addColumn(InternalName.make(b'texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
-array.addColumn(InternalName.make(b'normal'), 3, Geom.NTFloat32, Geom.CVector)
-array.addColumn(InternalName.make(b'binormal'), 3, Geom.NTFloat32, Geom.CVector)
-array.addColumn(InternalName.make(b'tangent'), 3, Geom.NTFloat32, Geom.CVector)
+array.addColumn(InternalName.make('vertex'), 3, Geom.NTFloat32, Geom.CPoint)
+array.addColumn(InternalName.make('texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
+array.addColumn(InternalName.make('normal'), 3, Geom.NTFloat32, Geom.CVector)
+array.addColumn(InternalName.make('binormal'), 3, Geom.NTFloat32, Geom.CVector)
+array.addColumn(InternalName.make('tangent'), 3, Geom.NTFloat32, Geom.CVector)
 
 # Create and register format.
 format = GeomVertexFormat()
@@ -56,7 +56,7 @@ def point_copy(p):
     return Point3(p[0], p[1], p[2])
 
 
-class myGeom(object):
+class myGeom:
     def __init__(self, center=[0.0, 0.0, 0.0], scale=1.0, smooth=True, tangents=True, verts=None, polys=None, mats=None, norms=None, uvs=None, mapping="box", fit_uvs=False):
         """
         Variable mapping should be a string defining the UV mapping type to use.
@@ -165,12 +165,12 @@ class myGeom(object):
 
         # Build array for new format.
         array = GeomVertexArrayFormat()
-        array.addColumn(InternalName.make(b'vertex'), 3, Geom.NTFloat32, Geom.CPoint)
-        array.addColumn(InternalName.make(b'texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
-        array.addColumn(InternalName.make(b'normal'), 3, Geom.NTFloat32, Geom.CVector)
+        array.addColumn(InternalName.make('vertex'), 3, Geom.NTFloat32, Geom.CPoint)
+        array.addColumn(InternalName.make('texcoord'), 2, Geom.NTFloat32, Geom.CTexcoord)
+        array.addColumn(InternalName.make('normal'), 3, Geom.NTFloat32, Geom.CVector)
         if self.use_tangents:
-            array.addColumn(InternalName.make(b'binormal'), 3, Geom.NTFloat32, Geom.CVector)
-            array.addColumn(InternalName.make(b'tangent'), 3, Geom.NTFloat32, Geom.CVector)
+            array.addColumn(InternalName.make('binormal'), 3, Geom.NTFloat32, Geom.CVector)
+            array.addColumn(InternalName.make('tangent'), 3, Geom.NTFloat32, Geom.CVector)
 
         # Create and register format.
         format = GeomVertexFormat()
@@ -182,9 +182,9 @@ class myGeom(object):
             vdata = GeomVertexData('ngon', format, Geom.UHStatic)
             geom = Geom(vdata)
             tri = GeomTriangles(Geom.UHStatic)
-            vertex = GeomVertexWriter(vdata, b'vertex')
-            normal = GeomVertexWriter(vdata, b'normal')
-            texcoord = GeomVertexWriter(vdata, b'texcoord')
+            vertex = GeomVertexWriter(vdata, 'vertex')
+            normal = GeomVertexWriter(vdata, 'normal')
+            texcoord = GeomVertexWriter(vdata, 'texcoord')
             geoms.append({'geom':geom,
                           'tri':tri,
                           'vertex':vertex,
@@ -194,8 +194,8 @@ class myGeom(object):
                           'vdata':vdata,
                           'color':i})
             if self.use_tangents:
-                tangent = GeomVertexWriter(vdata, b'tangent')
-                binormal = GeomVertexWriter(vdata, b'binormal')
+                tangent = GeomVertexWriter(vdata, 'tangent')
+                binormal = GeomVertexWriter(vdata, 'binormal')
                 geoms[i]['tangent'] = tangent
                 geoms[i]['binormal'] = binormal
 
@@ -986,7 +986,7 @@ def create_side(parent_nodepath, debug=False, invert=False):
     return parent_nodepath.attach_new_node(mnode)
 
 
-class Body(object):
+class Body:
     """Generic class for celestial bodies with NodePath like
     interfaces."""
 
@@ -1216,11 +1216,11 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
     shaders = Shader.load(Shader.SLGLSL,
                           'Shader/Star/vertex.glsl',
                           'Shader/Star/fragment.glsl')
-    final_node_path.set_shader_input(b'cameraSpherePos', 1, 1, 1)
-    final_node_path.set_shader_input(b'sphereRadius', 1.0)
-    final_node_path.set_shader_input(b'myCamera', base.camera)
+    final_node_path.set_shader_input('cameraSpherePos', 1, 1, 1)
+    final_node_path.set_shader_input('sphereRadius', 1.0)
+    final_node_path.set_shader_input('myCamera', base.camera)
     final_node_path.set_shader(shaders)
-    final_node_path.set_shader_input(b'blackbody', color)
+    final_node_path.set_shader_input('blackbody', color)
     material = Material()
     material.set_emission(VBase4(color, 1.0))
     final_node_path.set_material(material)

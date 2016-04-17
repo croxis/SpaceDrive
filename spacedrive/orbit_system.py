@@ -1,9 +1,3 @@
-# ## Python 3 look ahead imports ###
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import sandbox
 
 from math import sin, cos, radians, degrees, sqrt, atan2
@@ -16,8 +10,10 @@ from .import surface_mesh
 from .import universals
 from .utils import blackbody
 
-from .renderpipeline import DirectionalLight
-from .renderpipeline import Scattering
+from .renderpipeline.rpcore import PointLight as DirectionalLight
+#TODO: Switch to the sun direction manager or as tobias for info
+#TODO: Reenable scattering
+#from .renderpipeline import Scattering
 
 from direct.directnotify.DirectNotify import DirectNotify
 
@@ -67,7 +63,7 @@ def create_from_yaml_file(self, filename):
         data = f.read()
     if data:
         solardb = yaml.load(data)
-        for system_name, db in solardb.iteritems():
+        for system_name, db in solardb.items():
             create_solar_system(name=system_name, database=db)
     else:
         log.warning("No yaml file with that name")
@@ -133,11 +129,11 @@ def generate_node(name, database, parent_component):
         if database['type'] != 'star':
             render_component.mesh = surface_mesh.make_planet(name=name)
             if 'atmosphere' in database:
-                render_component.atmosphere = Scattering(sandbox.render_pipeline)
-                render_component.atmosphere.setSettings({
-                    'radiusGround': database['radius']/1000.0,
-                    'radiusAtmosphere': database['radius']/1000.0 + database['atmosphere']['height']/1000.0,
-                })
+                #render_component.atmosphere = Scattering(sandbox.render_pipeline)
+                #render_component.atmosphere.setSettings({
+                #    'radiusGround': database['radius']/1000.0,
+                #    'radiusAtmosphere': database['radius']/1000.0 + database['atmosphere']['height']/1000.0,
+                #})
                 render_component.atmosphere.precompute()
                 '''render_component.atmosphere.bindTo(sandbox.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(

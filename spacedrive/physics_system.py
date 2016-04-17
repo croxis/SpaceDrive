@@ -2,9 +2,9 @@ from panda3d.core import NodePath, Point3, Vec3
 
 import sandbox
 
-import celestial_components as cel_comps
-import physics_components as phys_comps
-import universals
+import spacedrive.celestial_components as cel_comps
+import spacedrive.physics_components as phys_comps
+import spacedrive.universals
 
 from direct.directnotify.DirectNotify import DirectNotify
 log = DirectNotify().newCategory("SpaceDrive-Physics")

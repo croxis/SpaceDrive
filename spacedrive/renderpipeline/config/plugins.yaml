@@ -8,14 +8,14 @@ enabled:
     - bloom
     - color_correction
     - env_probes
-    - motion_blur
     - pssm
-    - scattering
     - smaa
     - ssr
     # - clouds
     # - dof
     # - fxaa
+    # - motion_blur
+    # - scattering
     # - skin_shading
     # - volumetrics
     # - vxgi

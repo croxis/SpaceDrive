@@ -18,7 +18,7 @@ class BulletPhysicsComponent(object):
     def get_true_pos(self, debug=False):
         '''Returns the "true" position of this object'''
         if debug:
-            print self.nodePath.getName(), self.zoney * physics.ZONESIZE, self.nodePath.getY(), self.zoney * physics.ZONESIZE + self.nodePath.getY()
+            print(self.nodePath.getName(), self.zoney * physics.ZONESIZE, self.nodePath.getY(), self.zoney * physics.ZONESIZE + self.nodePath.getY())
         return LPoint3d(
             self.zonex * physics.ZONESIZE + self.nodePath.getX(),
             self.zoney * physics.ZONESIZE + self.nodePath.getY(),

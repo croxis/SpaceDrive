@@ -41,6 +41,8 @@ import gzip
 import shutil
 import argparse
 
+print("Ver:", sys.version)
+
 sys.dont_write_bytecode = True
 
 DEVNULL = open(os.path.devnull, "w")
@@ -103,7 +105,7 @@ def exec_python_file(pth, args=None):
     if CMD_ARGS.verbose:
         print("Executing", ' '.join(cmd))
     try:
-        output = subprocess.check_output(cmd, stderr=sys.stderr)
+        output = subprocess.run(cmd)
     except subprocess.CalledProcessError as msg:
         print(color("Failed to execute '" + pth + "'", Fore.YELLOW + Style.BRIGHT))
         print("Output:", msg, "\n", msg.output)
