@@ -1063,6 +1063,8 @@ class BitmapSurface(Body):
             m.set_shader_input('glossTexture', tex)'''
 
     def load_shaders(self):
+        #TODO: Fix
+        return
         shaders = Shader.load(Shader.SL_GLSL,
                               'Shader/Planet/surface_vertex.glsl',
                               'Shader/Planet/surface_fragment.glsl',
@@ -1213,14 +1215,21 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
     node = card_maker.generate()
     final_node_path = node_path.attach_new_node(node)
     final_node_path.set_billboard_point_eye()
-    shaders = Shader.load(Shader.SLGLSL,
-                          'Shader/Star/vertex.glsl',
-                          'Shader/Star/fragment.glsl')
-    final_node_path.set_shader_input('cameraSpherePos', 1, 1, 1)
-    final_node_path.set_shader_input('sphereRadius', 1.0)
-    final_node_path.set_shader_input('myCamera', base.camera)
-    final_node_path.set_shader(shaders)
-    final_node_path.set_shader_input('blackbody', color)
+    from panda3d.core import Filename
+    shaders = Shader.load(Shader.SL_GLSL,
+                          Filename('Shader/Star/vertex.glsl'),
+                          Filename('Shader/Star/fragment.glsl'),
+                          Filename(''),
+                          Filename(''),
+                          Filename(''))
+    if not shaders:
+        print("WARNING. STAR SHADER FAILED TO LOAD", type(shaders))
+    else:
+        final_node_path.set_shader_input('cameraSpherePos', 1, 1, 1)
+        final_node_path.set_shader_input('sphereRadius', 1.0)
+        final_node_path.set_shader_input('myCamera', base.camera)
+        final_node_path.set_shader(shaders)
+        final_node_path.set_shader_input('blackbody', color)
     material = Material()
     material.set_emission(VBase4(color, 1.0))
     final_node_path.set_material(material)
@@ -1238,13 +1247,13 @@ def make_star(name='star', scale=1, color=Vec3(1), texture_size=64, debug=False)
     diffuse.setMinfilter(Texture.FTLinearMipmapLinear)
     diffuse.setAnisotropicDegree(4)
     final_node_path.set_texture(diffuse)
-    normal = sandbox.base.loader.loadTexture('Data/Textures/EmptyNormalTexture.png')
+    normal = sandbox.base.loader.loadTexture('data/empty_textures/empty_normal.png')
     normalts = TextureStage('normalts')
     final_node_path.set_texture(normalts, normal)
-    specular = sandbox.base.loader.loadTexture('Data/Textures/EmptySpecularTexture.png')
+    specular = sandbox.base.loader.loadTexture('data/empty_textures/empty_specular.png')
     spects = TextureStage('spects')
     final_node_path.set_texture(spects, specular)
-    roughness = sandbox.base.loader.loadTexture('Data/Textures/EmptyRoughnessTexture.png')
+    roughness = sandbox.base.loader.loadTexture('data/empty_textures/empty_roughness.png')
     roughts= TextureStage('roughts')
     final_node_path.set_texture(roughts, roughness)
     return final_node_path

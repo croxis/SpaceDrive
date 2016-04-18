@@ -134,7 +134,7 @@ def generate_node(name, database, parent_component):
                 #    'radiusGround': database['radius']/1000.0,
                 #    'radiusAtmosphere': database['radius']/1000.0 + database['atmosphere']['height']/1000.0,
                 #})
-                render_component.atmosphere.precompute()
+                #render_component.atmosphere.precompute()
                 '''render_component.atmosphere.bindTo(sandbox.render_pipeline.lightingComputeContainer, "scatteringOptions")
                 sandbox.base.render_pipeline.lightingComputeContainer.setShaderInput(
                     "transmittanceSampler", render_component.atmosphere.getTransmittanceResult())
@@ -152,10 +152,11 @@ def generate_node(name, database, parent_component):
             render_component.light = DirectionalLight()
             #render_component.light.setAmbientColor(Vec3(0))
             #render_component.light.setColor(Vec3(color))
-            render_component.light.setDirection(render_component.mesh.get_pos())
-            render_component.light.setShadowMapResolution(1024)
-            render_component.light.setCastsShadows(True)
-            sandbox.render_pipeline.addLight(render_component.light)
+            #TODO: Fix Lines below
+            #render_component.light.setDirection(render_component.mesh.get_pos())
+            #render_component.light.setShadowMapResolution(1024)
+            #render_component.light.setCastsShadows(True)
+            sandbox.render_pipeline.add_light(render_component.light)
 
         elif database['type'] == 'solid' or database['type'] == 'moon':
             render_component.mesh.set_textures(database['textures'])

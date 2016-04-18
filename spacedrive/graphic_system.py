@@ -61,7 +61,7 @@ class GraphicsSystem(sandbox.EntitySystem):
                 vector.normalize()
                 vector *= self.scale_start_distance
                 sun_vector = Vec3(vector.get_x(), vector.get_y(), vector.get_z())
-                render_component.light.setDirection(sun_vector)
+                #render_component.light.setDirection(sun_vector)
 
             if render_component.atmosphere:
                 offset = Vec3(screen_pos.get_x(), screen_pos.get_y(), screen_pos.get_z())
