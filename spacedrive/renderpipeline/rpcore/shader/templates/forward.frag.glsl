@@ -157,16 +157,17 @@ void main() {
 
     %MATERIAL%
 
-    //m.metallic = 0;
-    //m.shading_model_param0 = 0.7;
-    //m.specular_ior = 2.3;
-    //m.basecolor = vec3(0.2);
+    // Glassy look
+    // m.metallic = 0;
+    // m.shading_model_param0 = 0.7;
+    // m.specular_ior = 2.3;
+    // m.basecolor = vec3(0.2);
 
     // Emulate gbuffer pass
-    //m.position = vOutput.position;
-    //m.specular = ior_to_specular(m.specular_ior);
+    m.position = vOutput.position;
+    m.specular = ior_to_specular(m.specular_ior);
     m.linear_roughness = m.roughness;
-    //m.roughness *= m.roughness;
+    m.roughness *= m.roughness;
 
     vec3 view_dir = normalize(vOutput.position - MainSceneData.camera_pos);
     vec3 color = vec3(0);
@@ -175,7 +176,7 @@ void main() {
     AmbientResult ambient = get_full_forward_ambient(m, view_dir); 
 
     color += ambient.diffuse;
-    color += ambient.specular * 2;
+    color += ambient.specular;
     color += get_sun_shading(m, view_dir);
 
     alpha = mix(alpha, 1.0, ambient.fresnel);
