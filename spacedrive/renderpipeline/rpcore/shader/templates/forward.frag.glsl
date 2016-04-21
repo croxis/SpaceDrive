@@ -157,16 +157,16 @@ void main() {
 
     %MATERIAL%
 
-    m.metallic = 0;
-    m.shading_model_param0 = 0.7;
-    m.specular_ior = 2.3;
-    m.basecolor = vec3(0.2);
+    //m.metallic = 0;
+    //m.shading_model_param0 = 0.7;
+    //m.specular_ior = 2.3;
+    //m.basecolor = vec3(0.2);
 
     // Emulate gbuffer pass
-    m.position = vOutput.position;
-    m.specular = ior_to_specular(m.specular_ior);
+    //m.position = vOutput.position;
+    //m.specular = ior_to_specular(m.specular_ior);
     m.linear_roughness = m.roughness;
-    m.roughness *= m.roughness;
+    //m.roughness *= m.roughness;
 
     vec3 view_dir = normalize(vOutput.position - MainSceneData.camera_pos);
     vec3 color = vec3(0);

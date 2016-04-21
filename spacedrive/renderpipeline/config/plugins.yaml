@@ -4,19 +4,20 @@
 # Any formatting and comments will be lost
 
 enabled:
-    - ao
     - bloom
     - color_correction
     - env_probes
-    - pssm
+    - forward_shading
+    - scattering
     - smaa
     - ssr
-    - forward_shading
+    # - ao
     # - clouds
     # - dof
     # - fxaa
     # - motion_blur
-    # - scattering
+    # - pssm
+    # - scattering_space
     # - skin_shading
     # - volumetrics
     # - vxgi
@@ -26,7 +27,7 @@ overrides:
     ao:
         blur_normal_factor: 6.92
         blur_depth_factor: 2.19
-        occlusion_strength: 1.6
+        occlusion_strength: 6.0
         clip_length: 12
         technique: SSAO
         ssao_sample_radius: 79.61
@@ -96,6 +97,8 @@ overrides:
         max_probes: 16
         max_probes_per_cell: 3
 
+    forward_shading:
+
     fxaa:
         quality: ultra
         subpixel_quality: 0.5111
@@ -140,6 +143,16 @@ overrides:
         rayleigh_height_scale: 8.0
         mie_height_scale: 1.45
         mie_phase_factor: 0.21
+        beta_mie_scattering: 4.0
+        enable_godrays: False
+
+    scattering_space:
+        scattering_method: eric_bruneton
+        ground_reflectance: 0.1
+        rayleigh_factor: 0.5
+        rayleigh_height_scale: 8.0
+        mie_height_scale: 1.2
+        mie_phase_factor: 0.8
         beta_mie_scattering: 4.0
         enable_godrays: False
 

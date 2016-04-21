@@ -115,7 +115,8 @@
 #if REFERENCE_MODE
   #define DEFAULT_ENVMAP_BRIGHTNESS 1.0
 #else
-  #define DEFAULT_ENVMAP_BRIGHTNESS 5.0
+  //#define DEFAULT_ENVMAP_BRIGHTNESS 5.0
+  #define DEFAULT_ENVMAP_BRIGHTNESS 0.0
 #endif
 
 // Minimum roughness, avoids infinitely bright highlights
