@@ -115,7 +115,7 @@
 
 // Controls the brightness of the fallback cubemap
 #if REFERENCE_MODE
-  #define DEFAULT_ENVMAP_BRIGHTNESS 1.0
+  #define DEFAULT_ENVMAP_BRIGHTNESS 0.0
 #else
   //#define DEFAULT_ENVMAP_BRIGHTNESS 5.0
   #define DEFAULT_ENVMAP_BRIGHTNESS 0.0

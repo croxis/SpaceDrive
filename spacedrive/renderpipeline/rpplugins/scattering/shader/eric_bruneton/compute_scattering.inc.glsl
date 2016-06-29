@@ -34,6 +34,9 @@
 uniform sampler3D InscatterSampler;
 uniform sampler2D IrradianceSampler;
 
+uniform vec3 world_origin;
+uniform float scale;
+
 vec3 sun_vector = get_sun_vector();
 /*
 
@@ -94,7 +97,8 @@ bool intersect_atmosphere(vec3 cam_pos, vec3 d, out float offset, out float max_
 // This is required because we use different coordinate systems for normal
 // rendering and atmospheric scattering.
 vec3 worldspace_to_atmosphere(vec3 pos) {
-    return pos * 1000;
+    return (pos - world_origin) * 1000 / scale;
+    //return pos * 1000/scale - world_origin;
 }
 
 vec3 get_inscattered_light(vec3 surface_pos, vec3 view_dir, inout vec3 attenuation, inout float irradiance_factor)
