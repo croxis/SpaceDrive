@@ -25,7 +25,7 @@ if __name__ == '__main__':
     spacedrive.init(log_level='info', window_title='SpaceDrive Demo')
     # Initiate the game loop.
     spacedrive.run()
-    ```
+```
     
 # Use
 
@@ -67,4 +67,4 @@ if __name__ == '__main__':
     
     # Initiate the game loop.
     spacedrive.run()
-    ```
+```
